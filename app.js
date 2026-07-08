@@ -6,7 +6,7 @@ const state = {
   fileName: '',
   rows: [],
   places: [],
-  filter: 'all',
+  filter: 'mapped',
   kakaoLoadedKey: null,
   map: null,
   markers: [],
@@ -16,6 +16,7 @@ const state = {
   fetchTimer: null,
   loadingTimer: null,
   loadingMessage: '',
+  mapReady: false,
 };
 
 const els = {
@@ -69,6 +70,11 @@ const els = {
   siteActionRow: document.getElementById('siteActionRow'),
   makeMapInlineButton: document.getElementById('makeMapInlineButton'),
   retryFetchButton: document.getElementById('retryFetchButton'),
+  publicSiteLink: document.getElementById('publicSiteLink'),
+  heroPublicSiteLink: document.getElementById('heroPublicSiteLink'),
+  configPanel: document.getElementById('configPanel'),
+  statsGrid: document.getElementById('statsGrid'),
+  mapLayout: document.getElementById('mapLayout'),
 };
 
 const BOARD_LIST_URLS = {
@@ -86,6 +92,36 @@ const SOURCE_LABELS = {
 const AGENCY_OPTIONS = [
   { name: '본청', group: '본청' },
   { name: '서울특별시교육청', group: '본청' },
+
+  // 본청 산하 부서
+  { name: '대변인', group: '본청 부서' },
+  { name: '감사관', group: '본청 부서' },
+  { name: '총무과', group: '본청 부서' },
+  { name: '안전총괄담당관', group: '본청 부서' },
+  { name: '유보통합추진단', group: '본청 부서' },
+  { name: '정책기획관', group: '본청 부서' },
+  { name: '예산담당관', group: '본청 부서' },
+  { name: '행정관리담당관', group: '본청 부서' },
+  { name: '학생맞춤지원담당관', group: '본청 부서' },
+  { name: '노사협력담당관', group: '본청 부서' },
+  { name: '교육협력담당관', group: '본청 부서' },
+  { name: '창의미래교육과', group: '본청 부서' },
+  { name: '유아교육과', group: '본청 부서' },
+  { name: '초등교육과', group: '본청 부서' },
+  { name: '중등교육과', group: '본청 부서' },
+  { name: '학생역량·혁신교육과', group: '본청 부서' },
+  { name: '학생역량‧혁신교육과', group: '본청 부서' },
+  { name: '평생교육과', group: '본청 부서' },
+  { name: '민주시민교육과', group: '본청 부서' },
+  { name: '진로직업교육과', group: '본청 부서' },
+  { name: '체육건강예술교육과', group: '본청 부서' },
+  { name: '특수교육과', group: '본청 부서' },
+  { name: '학교지원과', group: '본청 부서' },
+  { name: '교육재정과', group: '본청 부서' },
+  { name: '교육시설안전과', group: '본청 부서' },
+  { name: '미래학교추진단', group: '본청 부서' },
+
+  // 교육지원청
   { name: '동부교육지원청', group: '교육지원청' },
   { name: '서부교육지원청', group: '교육지원청' },
   { name: '남부교육지원청', group: '교육지원청' },
@@ -97,35 +133,47 @@ const AGENCY_OPTIONS = [
   { name: '동작관악교육지원청', group: '교육지원청' },
   { name: '성동광진교육지원청', group: '교육지원청' },
   { name: '성북강북교육지원청', group: '교육지원청' },
+
+  // 직속기관
   { name: '교육연구정보원', group: '직속기관' },
+  { name: '서울특별시교육청교육연구정보원', group: '직속기관' },
   { name: '융합과학교육원', group: '직속기관' },
+  { name: '서울특별시교육청융합과학교육원', group: '직속기관' },
   { name: '교육연수원', group: '직속기관' },
+  { name: '서울특별시교육청교육연수원', group: '직속기관' },
   { name: '학생교육원', group: '직속기관' },
+  { name: '서울특별시교육청학생교육원', group: '직속기관' },
   { name: '유아교육진흥원', group: '직속기관' },
+  { name: '서울특별시교육청유아교육진흥원', group: '직속기관' },
   { name: '보건안전진흥원', group: '직속기관' },
+  { name: '서울특별시교육청보건안전진흥원', group: '직속기관' },
   { name: '학생체육관', group: '직속기관' },
+  { name: '서울특별시교육청학생체육관', group: '직속기관' },
   { name: '교육시설관리본부', group: '직속기관' },
+  { name: '서울특별시교육청교육시설관리본부', group: '직속기관' },
+
+  // 도서관·평생학습관
   { name: '마포평생학습관', group: '도서관·평생학습관' },
   { name: '노원평생학습관', group: '도서관·평생학습관' },
   { name: '고덕평생학습관', group: '도서관·평생학습관' },
   { name: '영등포평생학습관', group: '도서관·평생학습관' },
-  { name: '정독도서관', group: '도서관·평생학습관' },
-  { name: '종로도서관', group: '도서관·평생학습관' },
-  { name: '남산도서관', group: '도서관·평생학습관' },
-  { name: '동대문도서관', group: '도서관·평생학습관' },
-  { name: '어린이도서관', group: '도서관·평생학습관' },
-  { name: '용산도서관', group: '도서관·평생학습관' },
-  { name: '도봉도서관', group: '도서관·평생학습관' },
   { name: '강남도서관', group: '도서관·평생학습관' },
+  { name: '강동도서관', group: '도서관·평생학습관' },
   { name: '강서도서관', group: '도서관·평생학습관' },
   { name: '개포도서관', group: '도서관·평생학습관' },
-  { name: '강동도서관', group: '도서관·평생학습관' },
-  { name: '구로도서관', group: '도서관·평생학습관' },
-  { name: '서대문도서관', group: '도서관·평생학습관' },
   { name: '고척도서관', group: '도서관·평생학습관' },
-  { name: '양천도서관', group: '도서관·평생학습관' },
+  { name: '구로도서관', group: '도서관·평생학습관' },
+  { name: '남산도서관', group: '도서관·평생학습관' },
+  { name: '도봉도서관', group: '도서관·평생학습관' },
+  { name: '동대문도서관', group: '도서관·평생학습관' },
   { name: '동작도서관', group: '도서관·평생학습관' },
+  { name: '서대문도서관', group: '도서관·평생학습관' },
   { name: '송파도서관', group: '도서관·평생학습관' },
+  { name: '양천도서관', group: '도서관·평생학습관' },
+  { name: '어린이도서관', group: '도서관·평생학습관' },
+  { name: '용산도서관', group: '도서관·평생학습관' },
+  { name: '정독도서관', group: '도서관·평생학습관' },
+  { name: '종로도서관', group: '도서관·평생학습관' },
 ];
 
 const headerRules = {
@@ -351,10 +399,17 @@ function inferAgencyFromMatrix(matrix) {
 }
 
 function isSummaryOrBlankRow(row) {
-  const combined = row.map(displayValue).join(' ');
+  const cells = row.map(displayValue).filter(Boolean);
+  const combined = cells.join(' ');
   if (!combined.trim()) return true;
-  if (/\b(소계|합계|계)\b/.test(combined.replace(/\s+/g, ' '))) return true;
-  if (/^(건\s*수|금\s*액|비\s*율)$/.test(combined.trim())) return true;
+
+  const normalizedCells = cells.map(cell => normalize(cell).replace(/[.:：]/g, ''));
+  const compact = normalize(combined).replace(/[.:：]/g, '');
+
+  // 공개 엑셀은 '합계', '합 계', '소계', '총계', '일시 합계' 같은 행이 섞여 들어올 수 있어 지도화 대상에서 제외합니다.
+  if (normalizedCells.some(cell => ['합계', '소계', '총계', '계'].includes(cell))) return true;
+  if (/(일시)?합계|소계|총계/.test(compact)) return true;
+  if (/^(건수|금액|비율)$/.test(compact)) return true;
   return false;
 }
 
@@ -476,6 +531,15 @@ function parseRowsFromSheet(sheetName, idPrefix = '') {
   };
 }
 
+
+function updateStageVisibility() {
+  const hasRows = state.rows.length > 0;
+  const showResults = hasRows && state.mapReady;
+  els.configPanel?.classList.toggle('stage-hidden', !hasRows);
+  els.statsGrid?.classList.toggle('stage-hidden', !showResults);
+  els.mapLayout?.classList.toggle('stage-hidden', !showResults);
+}
+
 function parseCurrentSheet() {
   if (!state.workbook || !state.sheetName) return;
 
@@ -503,12 +567,14 @@ function parseCurrentSheet() {
 
   state.rows = rows;
   state.places = rows;
-  state.filter = 'all';
+  state.filter = 'mapped';
+  state.mapReady = false;
   els.makeMapButton.disabled = !rows.length;
   els.downloadCsvButton.disabled = !rows.length;
-  setActiveFilter('all');
+  setActiveFilter('mapped');
   renderAll();
-  if (els.siteActionRow && !els.siteActionRow.classList.contains('hidden')) setSiteActionsVisible(true);
+  setSiteActionsVisible(Boolean(rows.length));
+  updateStageVisibility();
 
   const excluded = rows.filter(row => row.status === 'excluded').length;
   const sheetMessage = state.sheetName === '__ALL__'
@@ -598,15 +664,14 @@ function loadWorkbookFromArrayBuffer(buffer, fileName, autoParse = false) {
   }
   state.fileName = fileName || '';
   state.workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
-  const sheetOptions = state.workbook.SheetNames.length > 1
-    ? [`<option value="__ALL__">전체 시트 합쳐 읽기 (${state.workbook.SheetNames.length}개)</option>`, ...state.workbook.SheetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)]
-    : state.workbook.SheetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
-  els.sheetSelect.innerHTML = sheetOptions.join('');
   state.sheetName = state.workbook.SheetNames.length > 1 ? '__ALL__' : state.workbook.SheetNames[0];
-  els.sheetSelect.value = state.sheetName;
-  els.sheetRow.classList.remove('hidden');
+  if (els.sheetSelect) {
+    els.sheetSelect.innerHTML = `<option value="${escapeHtml(state.sheetName)}">${escapeHtml(state.sheetName === '__ALL__' ? '전체 시트 자동 합치기' : state.sheetName)}</option>`;
+    els.sheetSelect.value = state.sheetName;
+  }
+  els.sheetRow?.classList.add('hidden');
   if (els.uploadDetails) els.uploadDetails.open = false;
-  showToast(`${fileName || '공개자료'} 파일을 불러왔어요.${state.workbook.SheetNames.length > 1 ? ' 여러 시트는 자동으로 합쳐 읽습니다.' : ''}`);
+  showToast(`${fileName || '공개자료'} 파일을 불러왔어요.${state.workbook.SheetNames.length > 1 ? ' 여러 시트를 자동으로 합쳐 읽습니다.' : ''}`);
   if (autoParse) {
     setTimeout(parseCurrentSheet, 0);
   }
@@ -615,7 +680,7 @@ function loadWorkbookFromArrayBuffer(buffer, fileName, autoParse = false) {
 async function readFile(file) {
   if (!file) return;
   const buffer = await file.arrayBuffer();
-  loadWorkbookFromArrayBuffer(buffer, file.name || '', false);
+  loadWorkbookFromArrayBuffer(buffer, file.name || '', true);
 }
 
 function base64ToArrayBuffer(base64) {
@@ -657,7 +722,7 @@ function stopLoadingStatus() {
 }
 
 function setFetchBusy(isBusy, activeButton = null, text = '') {
-  const buttons = [els.autoExcelButton, els.fetchSiteButton, els.loadLatestButton, els.directFetchButton].filter(Boolean);
+  const buttons = [els.autoExcelButton, els.fetchSiteButton, els.directFetchButton].filter(Boolean);
   buttons.forEach(button => {
     button.disabled = isBusy;
   });
@@ -783,9 +848,18 @@ function getQuerySummaryText() {
   return [source, period.label, agency].filter(Boolean).join(' · ');
 }
 
+function updatePublicSiteLinks() {
+  const source = els.siteSourceSelect?.value || 'org';
+  const url = BOARD_LIST_URLS[source] || BOARD_LIST_URLS.org;
+  [els.publicSiteLink, els.heroPublicSiteLink].filter(Boolean).forEach(link => {
+    link.href = url;
+  });
+}
+
 function updateQuerySummary() {
   if (!els.querySummaryText) return;
   els.querySummaryText.textContent = getQuerySummaryText();
+  updatePublicSiteLinks();
 }
 
 function setSearchPanelCollapsed(collapsed) {
@@ -836,16 +910,20 @@ function renderAgencySuggestions(openAll = false) {
     els.siteAgencyInput.setAttribute('aria-expanded', 'false');
     return;
   }
-  const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? 44 : 12);
+  const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? 120 : 14);
   if (!options.length) {
     els.agencySuggestionList.innerHTML = '<div class="combo-option"><strong>직접 입력 가능</strong><span>목록에 없어도 그대로 검색할 수 있어요.</span></div>';
   } else {
-    els.agencySuggestionList.innerHTML = options.map((item, index) => `
-      <button class="combo-option" type="button" role="option" data-agency="${escapeHtml(item.name)}" data-index="${index}">
-        <strong>${escapeHtml(item.name)}</strong>
-        <span>${escapeHtml(item.group)}</span>
-      </button>
-    `).join('');
+    let lastGroup = '';
+    els.agencySuggestionList.innerHTML = options.map((item, index) => {
+      const groupHead = item.group !== lastGroup ? `<div class="combo-group-label">${escapeHtml(item.group)}</div>` : '';
+      lastGroup = item.group;
+      return `${groupHead}
+        <button class="combo-option" type="button" role="option" data-agency="${escapeHtml(item.name)}" data-index="${index}">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span>${escapeHtml(item.group)}</span>
+        </button>`;
+    }).join('');
   }
   els.agencySuggestionList.classList.remove('hidden');
   els.siteAgencyInput.setAttribute('aria-expanded', 'true');
@@ -878,10 +956,10 @@ function renderSiteCandidates(candidates = [], options = {}) {
     els.siteCandidateList.innerHTML = `
       <div class="candidate-head">
         <strong>게시글 후보를 아직 못 찾았어요.</strong>
-        <p>기관명을 비우고 최근 공개자료로 다시 찾거나, 열린교육 게시판에서 엑셀을 직접 내려받아 아래에 업로드해주세요.</p>
+        <p>사용내역이 없는 달이거나 아직 공개 전일 수 있어요. 공개사이트에서 직접 확인하거나, 엑셀을 내려받아 아래에 업로드해주세요.</p>
       </div>
       <div class="candidate-actions">
-        <a class="secondary-button small" target="_blank" rel="noopener" href="${escapeHtml(listUrl)}">게시판 열기</a>
+        <a class="secondary-button small" target="_blank" rel="noopener" href="${escapeHtml(listUrl)}">공개사이트 열기</a>
         <button class="secondary-button small" type="button" data-scroll-upload>엑셀 업로드로 이동</button>
       </div>
     `;
@@ -889,10 +967,10 @@ function renderSiteCandidates(candidates = [], options = {}) {
     els.siteCandidateList.innerHTML = `
       <div class="candidate-head">
         <strong>게시글 후보를 찾았어요.</strong>
-        <p>첨부파일 자동 다운로드는 사이트 구조상 막힐 수 있어요. 아래 후보를 보고 열린교육에서 엑셀을 내려받은 뒤, 바로 아래 업로드 영역에 넣어주세요.</p>
+        <p>아래 후보가 맞는지 공개사이트에서 확인할 수 있어요. 자동 수집이 막히면 엑셀을 내려받아 아래 업로드 영역에 넣어주세요.</p>
       </div>
       <div class="candidate-actions">
-        <a class="secondary-button small" target="_blank" rel="noopener" href="${escapeHtml(listUrl)}">게시판 열기</a>
+        <a class="secondary-button small" target="_blank" rel="noopener" href="${escapeHtml(listUrl)}">공개사이트 열기</a>
         ${searchText ? `<button class="secondary-button small" type="button" data-copy-search="${escapeHtml(searchText)}">검색어 복사</button>` : ''}
         <button class="primary-button small" type="button" data-scroll-upload>엑셀 업로드로 이동</button>
       </div>
@@ -968,14 +1046,14 @@ async function fetchSiteExcelAuto(latest = false) {
     const logs = Array.isArray(data.logs) && data.logs.length ? `\n진단: ${data.logs.slice(-3).join(' / ')}` : '';
     setSiteStatus(`첨부 엑셀 자동 수집 성공: ${data.fileName || '공개자료.xlsx'}${data.title ? `\n게시글: ${data.title}` : ''}${logs}\n\n아래의 “이 자료로 지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
     setSiteActionsVisible(true);
-    setSearchPanelCollapsed(false);
+    setSearchPanelCollapsed(true);
     els.siteActionRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     showToast('첨부 엑셀을 자동으로 가져왔어요. 이제 이 자료로 지도를 만들 수 있어요.');
   } catch (error) {
     stopLoadingStatus();
     setSiteActionsVisible(false);
     const message = fetchErrorMessage(error, '자동 수집이 막혔어요.');
-    setSiteStatus(`${message}\n\n[다시 시도]를 누르거나 조건을 바꾼 뒤 다시 가져올 수 있어요.`, 'error');
+    setSiteStatus(`${message}\n\n사용내역이 없는 달이거나 아직 공개 전일 수 있어요. 공개사이트에서 확인하거나 조건을 바꿔 다시 시도할 수 있습니다.`, 'error');
     showToast(message);
   } finally {
     setFetchBusy(false);
@@ -1011,7 +1089,7 @@ async function fetchSiteExcel(latest = false) {
   } catch (error) {
     stopLoadingStatus();
     const message = fetchErrorMessage(error, '게시글 후보를 찾지 못했어요.');
-    setSiteStatus(`${message}\n\n기관명을 비우고 최근 공개자료로 다시 찾거나, 게시판에서 엑셀을 직접 내려받아 아래 업로드 영역에 넣어주세요.`, 'error');
+    setSiteStatus(`${message}\n\n사용내역이 없는 달이거나 아직 공개 전일 수 있어요. 공개사이트에서 확인하거나 엑셀을 직접 내려받아 아래 업로드 영역에 넣어주세요.`, 'error');
   } finally {
     setFetchBusy(false);
   }
@@ -1108,7 +1186,11 @@ async function makeMap() {
     els.makeMapButton.textContent = '장소 검색 준비 중...';
     if (els.makeMapInlineButton) els.makeMapInlineButton.textContent = '장소 검색 준비 중...';
     await loadKakaoMap(key);
+    state.mapReady = true;
+    updateStageVisibility();
+    await sleep(0);
     const map = initMap();
+    if (window.kakao?.maps?.event) kakao.maps.event.trigger(map, 'resize');
     const service = new kakao.maps.services.Places();
 
     const targets = state.rows.filter(row => !row.skipGeocode);
@@ -1183,11 +1265,13 @@ function openOverlayForRow(row, marker) {
   closeActiveOverlay();
   const content = document.createElement('div');
   content.className = 'map-popover';
+  const dateText = row.date ? escapeHtml(row.date.split(' ')[0] || row.date) : '';
+  const addressText = row.address ? escapeHtml(row.address) : '';
   content.innerHTML = `
     <button class="map-popover-close" type="button" aria-label="팝업 닫기">×</button>
-    <strong>${escapeHtml(row.place || '사용장소')}</strong>
-    ${row.purpose ? `<p>${escapeHtml(row.purpose)}</p>` : ''}
-    <em>${escapeHtml(formatWon(row.amount))}</em>
+    <strong>${escapeHtml(row.matchedName || row.place || '사용장소')}</strong>
+    ${addressText ? `<p class="popover-address">${addressText}</p>` : ''}
+    <em>${[dateText, escapeHtml(formatWon(row.amount))].filter(Boolean).join(' · ')}</em>
   `;
   const overlay = new kakao.maps.CustomOverlay({
     position: marker.getPosition(),
@@ -1280,18 +1364,20 @@ function resetApp() {
   state.fileName = '';
   state.rows = [];
   state.places = [];
-  state.filter = 'all';
+  state.filter = 'mapped';
   state.markers.forEach(item => (item.marker || item).setMap(null));
   state.markers = [];
+  state.mapReady = false;
   els.fileInput.value = '';
-  els.sheetSelect.innerHTML = '';
-  els.sheetRow.classList.add('hidden');
+  if (els.sheetSelect) els.sheetSelect.innerHTML = '';
+  els.sheetRow?.classList.add('hidden');
   els.makeMapButton.disabled = true;
   els.downloadCsvButton.disabled = true;
   els.map.className = 'map-empty';
   els.map.innerHTML = '<p>엑셀을 읽은 뒤 Kakao 키를 입력하면 지도가 표시됩니다.</p>';
   state.map = null;
   renderAll();
+  updateStageVisibility();
   setSiteActionsVisible(false);
   setSiteStatus('새 자료를 불러올 준비가 되었어요. 조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.', '');
   clearSiteCandidates();
@@ -1300,9 +1386,9 @@ function resetApp() {
 
 els.selectFileButton.addEventListener('click', () => els.fileInput.click());
 els.fileInput.addEventListener('change', event => readFile(event.target.files[0]));
-els.sheetSelect.addEventListener('change', event => { state.sheetName = event.target.value; });
-els.parseButton.addEventListener('click', parseCurrentSheet);
-els.makeMapButton.addEventListener('click', makeMap);
+els.sheetSelect?.addEventListener('change', event => { state.sheetName = event.target.value; });
+els.parseButton?.addEventListener('click', parseCurrentSheet);
+els.makeMapButton?.addEventListener('click', makeMap);
 els.downloadCsvButton.addEventListener('click', downloadCsv);
 els.clearButton.addEventListener('click', resetApp);
 els.makeMapInlineButton?.addEventListener('click', makeMap);
@@ -1333,9 +1419,6 @@ if (els.autoExcelButton) {
 
 if (els.fetchSiteButton) {
   els.fetchSiteButton.addEventListener('click', () => fetchSiteExcel(false));
-}
-if (els.loadLatestButton) {
-  els.loadLatestButton.addEventListener('click', () => fetchSiteExcel(true));
 }
 if (els.directFetchButton) {
   els.directFetchButton.addEventListener('click', fetchDirectUrl);
@@ -1445,4 +1528,6 @@ window.addEventListener('DOMContentLoaded', () => {
   setDefaultPeriod();
   updateKeyCompactState();
   updateQuerySummary();
+  updatePublicSiteLinks();
+  updateStageVisibility();
 });

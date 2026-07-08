@@ -728,7 +728,7 @@ def auto_download(params: dict):
     latest = str(params.get("latest") or "").lower() in ["1", "true", "yes"]
     board, candidates, notices = find_post(source, year, month, agency, latest)
     if not candidates:
-        err = RuntimeError("조건에 맞는 업무추진비 게시글을 찾지 못했어요. 기관명 없이 최근 공개자료로 먼저 테스트하거나, 목록 URL을 아래 URL 칸에 넣어보세요.")
+        err = RuntimeError("조건에 맞는 업무추진비 게시글을 찾지 못했어요. 사용내역이 없는 달이거나 아직 공개 전일 수 있으니 공개사이트에서 직접 확인해보세요.")
         err.candidates = candidates
         err.notices = notices
         raise err

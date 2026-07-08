@@ -249,6 +249,7 @@ main { display: grid; gap: 18px; margin-top: 18px; }
   gap: 10px;
 }
 .hidden { display: none !important; }
+.stage-hidden { display: none !important; }
 
 .form-grid {
   display: grid;
@@ -1138,4 +1139,149 @@ input:focus, select:focus { border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(16
   .danger-soft {
     width: 100%;
   }
+}
+
+/* v3.5: GitHub upload clean-up */
+.app-footer {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  padding: 8px 4px 0;
+}
+
+.result-title strong,
+.result-purpose,
+.result-meta-grid,
+.candidate-item strong,
+.candidate-item p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.result-title strong {
+  line-height: 1.35;
+}
+
+.result-purpose {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.combo-group-label {
+  padding: 9px 10px 5px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  position: sticky;
+  top: 0;
+  background: rgba(255,255,255,.96);
+  z-index: 1;
+}
+
+.map-popover {
+  min-width: 200px;
+  max-width: 250px;
+  padding: 13px 38px 13px 14px;
+}
+.map-popover strong,
+.map-popover p,
+.map-popover em {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+.map-popover strong {
+  padding-right: 6px;
+  line-height: 1.35;
+}
+.map-popover .popover-address {
+  margin: 6px 0 0;
+  color: #475569;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.map-popover em {
+  margin-top: 7px;
+}
+
+.fetch-button-row .secondary-button,
+.hero-actions .ghost-link {
+  white-space: nowrap;
+}
+
+.map-config-actions .hidden {
+  display: none !important;
+}
+
+.site-action-row {
+  padding: 14px;
+  border: 1px solid #dbe3f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.site-action-row::before {
+  content: '자료를 불러왔어요';
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 900;
+  margin-right: 4px;
+}
+
+.compact-upload-panel .sheet-row,
+#sheetRow {
+  display: none !important;
+}
+
+.notice-panel,
+.notice-grid,
+.notice-copy {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .fetch-button-row .secondary-button,
+  .fetch-button-row .primary-button,
+  .fetch-button-row .text-button {
+    width: 100%;
+  }
+  .site-action-row::before {
+    width: 100%;
+  }
+}
+
+/* Keep the single map CTA visible even when search conditions are collapsed */
+.site-panel.is-collapsed .site-body {
+  display: block;
+}
+.site-panel.is-collapsed .site-body > :not(#siteActionRow) {
+  display: none !important;
+}
+.site-panel.is-collapsed #siteActionRow.hidden {
+  display: none !important;
+}
+.site-panel.is-collapsed #siteActionRow:not(.hidden) {
+  display: flex !important;
+}
+
+
+/* v3.6: 기준월 > 게시판 > 하위항목 흐름 */
+.ordered-query-grid {
+  grid-template-columns: minmax(180px, 0.72fr) minmax(260px, 1fr) minmax(360px, 1.45fr);
+}
+
+.app-footer a {
+  color: var(--primary);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
 }

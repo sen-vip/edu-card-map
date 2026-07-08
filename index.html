@@ -19,7 +19,7 @@
       </nav>
       <div class="hero-grid">
         <section class="hero-copy">
-          <span class="status-pill">v3.4 · 흐름 안정화</span>
+          <span class="status-pill">v3.6.1 · 버그 수정판</span>
           <h2>서울교육 업무추진비<br />공개자료 시각화</h2>
           <p>
             서울 열린교육 게시판에서 업무추진비 첨부 엑셀을 자동으로 가져오고,
@@ -27,7 +27,7 @@
           </p>
           <div class="hero-actions">
             <a class="primary-link" href="#site-card">첨부 엑셀 자동 가져오기</a>
-            <a class="ghost-link" href="#notice-card">안전한 공개 톤 보기</a>
+            <a class="ghost-link" id="heroPublicSiteLink" target="_blank" rel="noopener" href="https://open.sen.go.kr/fus/MI000000000000000513/board/BO00000227/ctgynone/list0010v.do">사용내역 공개사이트 바로가기</a>
           </div>
         </section>
         <aside class="hero-card" aria-label="요약">
@@ -66,7 +66,13 @@
         </div>
 
         <div class="site-body" id="siteBody">
-          <div class="form-grid site-form-grid">
+          <div class="form-grid site-form-grid ordered-query-grid">
+            <label class="period-field">
+              <span>기준월</span>
+              <input id="siteYearMonthInput" type="month" aria-label="기준월" />
+              <input id="siteYearInput" type="hidden" value="" />
+              <input id="siteMonthInput" type="hidden" value="" />
+            </label>
             <label>
               <span>게시판</span>
               <select id="siteSourceSelect">
@@ -75,26 +81,20 @@
                 <option value="org">본청·교육지원청·직속기관</option>
               </select>
             </label>
-            <label class="period-field">
-              <span>기준월</span>
-              <input id="siteYearMonthInput" type="month" aria-label="기준월" />
-              <input id="siteYearInput" type="hidden" value="" />
-              <input id="siteMonthInput" type="hidden" value="" />
-            </label>
             <label class="agency-combo-field">
-              <span>기관명/부서명 선택 또는 입력</span>
+              <span>하위항목</span>
               <div class="combo-wrap" id="agencyComboWrap">
-                <input id="siteAgencyInput" type="text" placeholder="예: 동작도서관, 강남서초교육지원청" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="agencySuggestionList" />
-                <button class="combo-arrow" type="button" id="agencyComboButton" aria-label="기관 목록 열기">⌄</button>
+                <input id="siteAgencyInput" type="text" placeholder="예: 교육재정과, 동부교육지원청, 정독도서관" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="agencySuggestionList" />
+                <button class="combo-arrow" type="button" id="agencyComboButton" aria-label="하위항목 목록 열기">⌄</button>
                 <div id="agencySuggestionList" class="combo-list hidden" role="listbox"></div>
               </div>
             </label>
           </div>
           <div class="button-row fetch-button-row">
             <button class="primary-button" type="button" id="autoExcelButton">첨부 엑셀 자동 가져오기</button>
+            <a class="secondary-button" id="publicSiteLink" target="_blank" rel="noopener" href="https://open.sen.go.kr/fus/MI000000000000000513/board/BO00000227/ctgynone/list0010v.do">사용내역 공개사이트 바로가기</a>
             <button class="secondary-button danger-soft hidden" type="button" id="stopFetchButton">수집 중지</button>
             <button class="secondary-button" type="button" id="fetchSiteButton">게시글 후보만 찾기</button>
-            <button class="secondary-button" type="button" id="loadLatestButton">최근 공개자료 찾기</button>
             <button class="text-button" type="button" id="resetFlowButton">새로 시작하기</button>
           </div>
           <details class="url-helper">
@@ -136,22 +136,21 @@
             <button class="secondary-button" type="button" id="selectFileButton">파일 선택</button>
           </div>
 
-          <div class="sheet-row hidden" id="sheetRow">
-            <label for="sheetSelect">시트 선택</label>
+          <div class="sheet-row hidden" id="sheetRow" aria-hidden="true">
             <select id="sheetSelect"></select>
             <button class="secondary-button" type="button" id="parseButton">자료 읽기</button>
           </div>
         </details>
       </section>
 
-      <section class="panel config-panel compact-config-panel">
+      <section id="configPanel" class="panel config-panel compact-config-panel stage-hidden">
         <div class="section-head compact-head map-config-head">
           <div>
             <p class="section-kicker">Step 2</p>
             <h3>지도에 표시하기</h3>
           </div>
           <div class="map-config-actions">
-            <button class="primary-button" type="button" id="makeMapButton" disabled>이 자료로 지도 만들기</button>
+            <button class="primary-button hidden" type="button" id="makeMapButton" disabled>이 자료로 지도 만들기</button>
             <button class="text-button" type="button" id="clearButton">초기화</button>
           </div>
         </div>
@@ -185,7 +184,7 @@
         </details>
       </section>
 
-      <section class="stats-grid" aria-label="요약 통계">
+      <section id="statsGrid" class="stats-grid stage-hidden" aria-label="요약 통계">
         <article class="stat-card">
           <span>총 사용건수</span>
           <strong id="countStat">0</strong>
@@ -208,7 +207,7 @@
         </article>
       </section>
 
-      <section class="map-layout">
+      <section id="mapLayout" class="map-layout stage-hidden">
         <div class="panel map-panel">
           <div class="section-head compact-head">
             <div>
@@ -216,14 +215,14 @@
               <h3>사용장소 지도</h3>
             </div>
             <div class="filter-tabs" role="group" aria-label="결과 필터">
-              <button class="tab-button" type="button" data-filter="mapped">지도표시</button>
+              <button class="tab-button active" type="button" data-filter="mapped">지도표시</button>
               <button class="tab-button" type="button" data-filter="review">확인필요</button>
               <button class="tab-button" type="button" data-filter="excluded">제외</button>
-              <button class="tab-button active" type="button" data-filter="all">전체</button>
+              <button class="tab-button" type="button" data-filter="all">전체</button>
             </div>
           </div>
           <div id="map" class="map-empty">
-            <p>엑셀을 읽은 뒤 Kakao 키를 입력하면 지도가 표시됩니다.</p>
+            <p>자료를 불러온 뒤 “이 자료로 지도 만들기”를 누르면 지도가 표시됩니다.</p>
           </div>
         </div>
 
@@ -241,30 +240,8 @@
         </aside>
       </section>
 
-      <section id="notice-card" class="panel notice-panel">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">Tone guide</p>
-            <h3>이 앱의 공개 톤</h3>
-          </div>
-          <span class="soft-badge safe">공개자료 시각화</span>
-        </div>
-        <div class="notice-grid">
-          <div>
-            <h4>쓰는 표현</h4>
-            <p>공개자료, 사용장소, 시각화, 월별 보기, 기관별 보기, 확인필요, 지도제외</p>
-          </div>
-          <div>
-            <h4>피하는 표현</h4>
-            <p>맛집 랭킹, 털기, 추적, 간부 맛집, 세금 맛집처럼 오해를 부를 수 있는 표현</p>
-          </div>
-        </div>
-        <p class="notice-copy">
-          이 도구는 공개된 업무추진비 자료를 더 쉽게 확인하기 위한 시각화 도구입니다.
-          경조사비, 개인에게 지급된 현금성 항목, 온라인 쇼핑몰 결제처럼 장소 지도로 오해될 수 있는 항목은 지도 검색에서 제외합니다.
-          위치는 자동 검색 결과이므로 실제 사용장소와 다를 수 있으며, 확인필요 항목은 원자료와 대조해야 합니다.
-        </p>
-      </section>
+      <footer class="app-footer">제작자 senvip · <a href="https://github.com/sen-vip" target="_blank" rel="noopener">GitHub</a></footer>
+
     </main>
   </div>
 
