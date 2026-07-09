@@ -1,68 +1,74 @@
 # 교육청 법카맵
 
-서울교육 업무추진비 공개자료를 지도와 목록으로 확인하는 웹앱입니다.
+서울교육 업무추진비 공개자료를 자동으로 가져와 지도와 목록으로 확인하는 웹앱입니다.
 
-## v3.6.1 정리판
+## v3.7.0 Vercel 백엔드 준비판
 
-- 서울 열린교육 게시판 첨부 엑셀 자동 가져오기
-- 사용내역 공개사이트 바로가기 추가
-- 여러 시트 엑셀 자동 합치기
-- 시트 선택 UI 제거
-- 지도 팝업 간소화: 장소, 주소, 날짜, 금액 중심
-- 결과 탭 기본값: 지도표시
-- 경조사비, 개인 지급, 쇼핑몰 항목 지도 제외
-- Kakao 지도 키 저장 영역 축소
-- 최근 공개자료 찾기 버튼 제거
-- 공개 톤 안내 카드 제거
+이번 버전은 GitHub Pages 정적 배포에서 빠졌던 `/api` 백엔드를 Vercel 배포 구조로 보완했습니다.
 
-## 로컬 실행
+### 반영 내용
 
-처음 1회 설치:
+- `/api/sen-browser` 추가: 프론트의 자동 수집 버튼과 연결
+- `/api/sen-find` 추가: 게시글 후보 찾기 버튼과 연결
+- `/api/sen-auto` 정리: 직접 URL 불러오기와 공통 자동 다운로드 담당
+- `lib/sen-scraper.js` 재사용: 열린교육 게시판 검색, 상세글 확인, 첨부파일 다운로드
+- `vercel.json` 추가: Vercel Functions 실행 시간과 API 캐시 방지 설정
+- `server.js` 추가: 로컬에서도 Vercel API와 비슷한 방식으로 테스트 가능
+- `README.md`를 Vercel 배포 기준으로 정리
 
-```powershell
-py -m pip install -r requirements.txt
-py -m playwright install chromium
+## 폴더 구조
+
+```txt
+edu-card-map/
+├─ index.html
+├─ style.css
+├─ app.js
+├─ lib/
+│  └─ sen-scraper.js
+├─ api/
+│  ├─ sen-browser.js
+│  ├─ sen-find.js
+│  └─ sen-auto.js
+├─ package.json
+├─ vercel.json
+└─ server.js
 ```
 
-실행:
+## Vercel 배포
 
-```powershell
-py server.py
+1. GitHub 저장소에 이 파일들을 업로드합니다.
+2. Vercel에서 `Add New Project`를 누릅니다.
+3. `edu-card-map` 저장소를 선택합니다.
+4. Framework Preset은 `Other`로 두고 배포합니다.
+5. 배포 주소가 나오면 Kakao Developers의 JavaScript 키 허용 도메인에 추가합니다.
+
+예시:
+
+```txt
+https://edu-card-map.vercel.app
 ```
 
-브라우저:
+## 로컬 테스트
 
-```text
+Node.js 18 이상에서 실행합니다.
+
+```bash
+npm install
+npm run dev
+```
+
+브라우저에서 접속합니다.
+
+```txt
 http://localhost:3000
 ```
 
 ## Kakao 지도 키
 
-Kakao JavaScript 키는 브라우저 localStorage에 저장됩니다.
-배포할 때는 Kakao Developers에서 허용 도메인을 등록해야 합니다.
-
-예:
-
-```text
-http://localhost:3000
-https://사용자명.github.io
-https://사용자명.github.io/저장소명
-```
+Kakao JavaScript 키는 브라우저 `localStorage`에 저장됩니다. Vercel 배포 주소를 Kakao Developers의 허용 도메인에 등록해야 지도 표시가 정상 작동합니다.
 
 ## 주의
 
-위치는 Kakao 장소 검색 결과를 바탕으로 표시되므로 실제 사용장소와 다를 수 있습니다.
-확인필요 항목은 원자료와 대조하세요.
-
-
-## v3.6.1 변경사항
-- 조회 흐름을 `기준월 → 게시판 → 하위항목` 순서로 정리했습니다.
-- 본청 산하 부서명을 하위항목 콤보박스에 추가했습니다.
-- `합계`, `합 계`, `소계`, `총계`, `일시 합계` 행은 추출 대상에서 제외합니다.
-- 하단에 제작자 senvip GitHub 링크를 추가했습니다.
-
-
-## v3.6.1
-- 초기 화면에서 빈 지도/통계 영역이 먼저 보이던 문제를 수정했습니다.
-- 자동 수집 후 검색 패널 접힘 흐름을 다시 정리했습니다.
-- 지도 결과 탭 기본값을 `지도표시`로 맞췄습니다.
+- 열린교육 게시판 구조가 바뀌면 자동 수집이 실패할 수 있습니다.
+- 자동 수집이 막히면 엑셀을 직접 내려받아 업로드할 수 있습니다.
+- 위치는 Kakao 장소 검색 결과를 바탕으로 추정하므로 확인필요 항목은 원자료와 대조하세요.
