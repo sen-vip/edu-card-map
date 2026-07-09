@@ -1,4 +1,4 @@
-const { BOARDS, autoDownload } = require('../lib/sen-scraper');
+const { BOARDS, browserAutoDownload, autoDownload } = require('../lib/sen-scraper');
 
 function toCandidate(item) {
   return {
@@ -30,7 +30,20 @@ module.exports = async function handler(req, res) {
       directUrl: q.directUrl || '',
     };
 
-    const result = await autoDownload(params);
+    let result;
+    try {
+      result = await browserAutoDownload(params);
+    } catch (browserError) {
+      // 브라우저 자동화가 설치/실행되지 않는 환경에서는 기존 URL 추출 방식으로 한 번 더 시도한다.
+      try {
+        result = await autoDownload(params);
+      } catch (simpleError) {
+        simpleError.logs = (browserError.logs || []).concat(simpleError.logs || simpleError.notices || []);
+        simpleError.candidates = simpleError.candidates || browserError.candidates;
+        simpleError.notices = simpleError.notices || browserError.notices;
+        throw simpleError;
+      }
+    }
     logs.push(`게시글 확인: ${result.title || '제목 없음'}`);
     logs.push(`첨부파일 확인: ${result.fileName || '파일명 없음'}`);
     logs.push(`처리시간: ${Math.round((Date.now() - startedAt) / 100) / 10}초`);

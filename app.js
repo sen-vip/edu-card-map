@@ -799,6 +799,33 @@ function previousMonthKey(baseDate = new Date()) {
   return monthKeyFromDate(date);
 }
 
+function maxSelectableMonthKey(baseDate = new Date()) {
+  // 업무추진비 사용내역은 통상 다음 달에 공개되므로, 기준월은 지난달까지만 선택합니다.
+  return previousMonthKey(baseDate);
+}
+
+function isStaticGithubPages() {
+  return /(^|\.)github\.io$/i.test(window.location.hostname);
+}
+
+function backendUnavailableMessage() {
+  return [
+    '현재 주소는 GitHub Pages 정적 주소라 자동 수집 백엔드(/api)가 없어요.',
+    '첨부 엑셀 자동 가져오기·게시글 후보 찾기·URL 불러오기는 Vercel 배포 주소에서 실행해주세요.',
+    '이 주소에서는 아래의 엑셀 직접 업로드 기능만 정상 사용 가능합니다.',
+  ].join('\n');
+}
+
+function ensureBackendAvailable() {
+  if (!isStaticGithubPages()) return true;
+  const message = backendUnavailableMessage();
+  clearSiteCandidates();
+  setSiteActionsVisible(false);
+  setSiteStatus(message, 'error');
+  showToast('자동 수집은 Vercel 주소에서 사용할 수 있어요.');
+  return false;
+}
+
 function splitMonthKey(monthKey) {
   const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
   if (!match) return { year: '', month: '' };
@@ -806,13 +833,13 @@ function splitMonthKey(monthKey) {
 }
 
 function syncPeriodToHidden() {
-  const maxKey = monthKeyFromDate(new Date());
+  const maxKey = maxSelectableMonthKey();
   if (els.siteYearMonthInput) {
-    if (!els.siteYearMonthInput.max) els.siteYearMonthInput.max = maxKey;
-    if (!els.siteYearMonthInput.value) els.siteYearMonthInput.value = previousMonthKey();
+    els.siteYearMonthInput.max = maxKey;
+    if (!els.siteYearMonthInput.value) els.siteYearMonthInput.value = maxKey;
     if (els.siteYearMonthInput.value > maxKey) {
       els.siteYearMonthInput.value = maxKey;
-      showToast('현재일 이후의 월은 조회하지 않도록 막았어요.');
+      showToast('이번 달부터는 아직 공개 전일 수 있어 지난달까지만 선택하게 했어요.');
     }
     const { year, month } = splitMonthKey(els.siteYearMonthInput.value);
     if (els.siteYearInput) els.siteYearInput.value = year;
@@ -826,9 +853,9 @@ function syncPeriodToHidden() {
 
 function setDefaultPeriod() {
   if (!els.siteYearMonthInput) return;
-  const maxKey = monthKeyFromDate(new Date());
+  const maxKey = maxSelectableMonthKey();
   els.siteYearMonthInput.max = maxKey;
-  els.siteYearMonthInput.value = previousMonthKey();
+  els.siteYearMonthInput.value = maxKey;
   syncPeriodToHidden();
 }
 
@@ -1020,7 +1047,13 @@ function siteParams(latest = false) {
   const source = els.siteSourceSelect?.value || 'chief';
   const { year, month } = syncPeriodToHidden();
   const agency = els.siteAgencyInput?.value?.trim() || '';
-  const params = new URLSearchParams({ source, year: year || String(new Date().getFullYear()), month: month || String(new Date().getMonth() + 1), agency });
+  const fallback = splitMonthKey(maxSelectableMonthKey());
+  const params = new URLSearchParams({
+    source,
+    year: year || fallback.year,
+    month: month || fallback.month,
+    agency,
+  });
   if (latest) params.set('latest', '1');
   return params;
 }
@@ -1028,6 +1061,7 @@ function siteParams(latest = false) {
 
 async function fetchSiteExcelAuto(latest = false) {
   const button = els.autoExcelButton;
+  if (!ensureBackendAvailable()) return;
   try {
     clearSiteCandidates();
     setSiteActionsVisible(false);
@@ -1062,6 +1096,7 @@ async function fetchSiteExcelAuto(latest = false) {
 
 async function fetchSiteExcel(latest = false) {
   if (!els.fetchSiteButton) return;
+  if (!ensureBackendAvailable()) return;
   const button = latest ? els.loadLatestButton : els.fetchSiteButton;
   try {
     clearSiteCandidates();
@@ -1096,6 +1131,7 @@ async function fetchSiteExcel(latest = false) {
 }
 
 async function fetchDirectUrl() {
+  if (!ensureBackendAvailable()) return;
   const url = els.directUrlInput?.value?.trim();
   if (!url) {
     showToast('게시글 또는 첨부파일 URL을 입력해주세요.');
@@ -1379,7 +1415,7 @@ function resetApp() {
   renderAll();
   updateStageVisibility();
   setSiteActionsVisible(false);
-  setSiteStatus('새 자료를 불러올 준비가 되었어요. 조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.', '');
+  setSiteStatus(isStaticGithubPages() ? backendUnavailableMessage() : '새 자료를 불러올 준비가 되었어요. 조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.', isStaticGithubPages() ? 'error' : '');
   clearSiteCandidates();
   showToast('초기화했어요.');
 }
@@ -1530,4 +1566,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateQuerySummary();
   updatePublicSiteLinks();
   updateStageVisibility();
+  if (isStaticGithubPages()) {
+    setSiteStatus(backendUnavailableMessage(), 'error');
+  }
 });
