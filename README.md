@@ -34,6 +34,23 @@ edu-card-map/
 └─ server.js
 ```
 
+
+## v3.7.4
+
+- Vercel 서버리스에서 Playwright 기본 브라우저 캐시를 찾다가 실패하던 문제를 보완했습니다.
+- `@sparticuz/chromium`을 명시적으로 사용하고, 준비 실패 원인을 진단 로그에 짧게 남기도록 수정했습니다.
+- 긴 오류 원문이 토스트에 통째로 떠서 화면을 덮는 문제를 수정했습니다.
+- `package.json`의 Chromium/Playwright 버전을 고정했습니다.
+
+Vercel 설정 권장값:
+
+```txt
+Application Preset: Other
+Install Command: npm install
+Build Command: None
+Output Directory: N/A
+```
+
 ## v3.7.2
 
 - 기준월 기본값을 지난달로 고정했습니다.

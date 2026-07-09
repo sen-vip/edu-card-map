@@ -260,7 +260,8 @@ function formatWon(value) {
 }
 
 function showToast(message) {
-  els.toast.textContent = message;
+  const text = String(message || '');
+  els.toast.textContent = text.length > 70 ? `${text.slice(0, 70)}…` : text;
   els.toast.classList.add('show');
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => els.toast.classList.remove('show'), 3000);

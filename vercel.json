@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/*.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "headers": [
@@ -15,5 +16,8 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "AWS_LAMBDA_JS_RUNTIME": "nodejs22.x"
+  }
 }

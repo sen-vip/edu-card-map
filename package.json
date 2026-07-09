@@ -1,6 +1,6 @@
 {
   "name": "edu-card-map",
-  "version": "3.7.3-browser-fallback-fix",
+  "version": "3.7.4-vercel-chromium-toast-fix",
   "private": true,
   "description": "교육청 법카맵 - 서울교육 업무추진비 공개자료 지도화",
   "scripts": {
@@ -9,10 +9,10 @@
     "check": "node -c app.js && node -c lib/sen-scraper.js && node -c api/sen-auto.js && node -c api/sen-find.js && node -c api/sen-browser.js && node -c server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@sparticuz/chromium": "latest",
-    "playwright-core": "latest"
+    "@sparticuz/chromium": "131.0.1",
+    "playwright-core": "1.49.0"
   }
 }
