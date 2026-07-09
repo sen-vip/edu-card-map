@@ -1,201 +1,568 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>교육청 법카맵</title>
-  <meta name="description" content="서울교육 업무추진비 공개자료 엑셀을 지도와 목록으로 확인하는 웹앱" />
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head>
-<body>
-  <div class="page-shell">
-    <header class="hero-card">
-      <div class="hero-copy">
-        <span class="eyebrow">LC · Public expense map</span>
-        <h1>교육청 법카맵</h1>
-        <p>서울 열린교육 업무추진비 공개자료를 자동으로 가져오고, 사용장소·금액·확인필요 항목을 지도와 목록으로 정리합니다.</p>
-        <div class="hero-actions">
-          <a id="heroPublicSiteLink" class="ghost-link" href="https://open.sen.go.kr" target="_blank" rel="noopener">사용내역 공개사이트 바로가기</a>
-        </div>
-      </div>
-      <div class="hero-panel">
-        <strong>오늘 할 수 있는 것</strong>
-        <ul>
-          <li>첨부 엑셀 자동 가져오기</li>
-          <li>직접 업로드로 지도 만들기</li>
-          <li>경조사비·쇼핑몰·개인지급 제외</li>
-          <li>확인필요 항목 따로 보기</li>
-        </ul>
-      </div>
-    </header>
+const BASE = 'https://open.sen.go.kr';
 
-    <main class="main-grid">
-      <section id="site-card" class="card site-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Step 1</span>
-            <h2>서울 열린교육 게시판에서 가져오기</h2>
-          </div>
-          <div class="head-actions">
-            <button id="collapseSiteButton" class="icon-button" type="button" title="조건 접기/펼치기">⌃</button>
-            <button id="closeSiteButton" class="icon-button" type="button" title="검색 패널 닫기">×</button>
-          </div>
-        </div>
+const BOARDS = {
+  chief: {
+    label: '교육감 업무추진비',
+    agency: '서울특별시교육청',
+    listUrl: `${BASE}/fus/MI000000000000000511/board/BO00000225/ctgynone/list0010v.do`,
+  },
+  vice: {
+    label: '부교육감 업무추진비',
+    agency: '서울특별시교육청',
+    listUrl: `${BASE}/fus/MI000000000000000512/board/BO00000226/ctgynone/list0010v.do`,
+  },
+  org: {
+    label: '본청·교육지원청·직속기관 업무추진비',
+    agency: '',
+    listUrl: `${BASE}/fus/MI000000000000000513/board/BO00000227/ctgynone/list0010v.do`,
+  },
+};
 
-        <div id="querySummary" class="query-summary hidden">
-          <span id="querySummaryText">조회조건을 선택해주세요.</span>
-          <button id="expandSiteButton" class="text-button" type="button">조건 펼치기</button>
-        </div>
+// 열린서울교육은 기관별 목록 URL이 /ctgynone/ 대신 /039/처럼 카테고리 코드로 노출되는 경우가 있어요.
+// 확인된 코드는 우선 힌트로 사용하고, 틀려도 일반 목록 검색으로 다시 넘어갑니다.
+const AGENCY_CATEGORY_HINTS = {
+  '동작도서관': '039',
+};
 
-        <div id="configPanel" class="config-panel">
-          <div class="form-grid">
-            <label>
-              <span>기준월</span>
-              <input id="siteYearMonthInput" type="month" />
-              <input id="siteYearInput" type="hidden" />
-              <input id="siteMonthInput" type="hidden" />
-            </label>
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36 edu-card-map/2.0';
 
-            <label>
-              <span>게시판</span>
-              <select id="siteSourceSelect">
-                <option value="chief">교육감 업무추진비</option>
-                <option value="vice">부교육감 업무추진비</option>
-                <option value="org">본청·교육지원청·직속기관</option>
-              </select>
-            </label>
+function assertOpenSenUrl(url) {
+  const parsed = new URL(url, BASE);
+  if (parsed.hostname !== 'open.sen.go.kr') {
+    throw new Error('open.sen.go.kr 주소만 불러올 수 있어요.');
+  }
+  return parsed.toString();
+}
 
-            <label id="agencyComboWrap" class="combo-wrap">
-              <span>하위항목</span>
-              <div class="combo-line">
-                <input id="siteAgencyInput" type="text" placeholder="예: 동작관악교육지원청, 총무과" autocomplete="off" />
-                <button id="agencyComboButton" type="button" title="하위항목 펼치기">⌄</button>
-              </div>
-              <div id="agencySuggestionList" class="combo-list hidden" role="listbox"></div>
-            </label>
-          </div>
+async function fetchText(url) {
+  const safeUrl = assertOpenSenUrl(url);
+  const response = await fetch(safeUrl, {
+    headers: {
+      'user-agent': UA,
+      'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'referer': BASE,
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) throw new Error(`게시판을 불러오지 못했어요. HTTP ${response.status}`);
+  return await response.text();
+}
 
-          <div class="button-row site-buttons">
-            <button id="autoExcelButton" class="primary-button" type="button">첨부 엑셀 자동 가져오기</button>
-            <a id="publicSiteLink" class="secondary-button" href="https://open.sen.go.kr" target="_blank" rel="noopener">사용내역 공개사이트 바로가기</a>
-            <button id="stopFetchButton" class="secondary-button danger hidden" type="button">수집 중지</button>
-            <button id="fetchSiteButton" class="secondary-button" type="button">게시글 후보만 찾기</button>
-            <button id="loadLatestButton" class="secondary-button" type="button">최신자료 찾기</button>
-            <button id="resetFlowButton" class="secondary-button" type="button">새로 시작하기</button>
-          </div>
+async function fetchBinary(url, referer = BASE) {
+  const safeUrl = assertOpenSenUrl(url);
+  const response = await fetch(safeUrl, {
+    headers: {
+      'user-agent': UA,
+      'accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,*/*',
+      'referer': referer,
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) throw new Error(`첨부파일을 내려받지 못했어요. HTTP ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const contentType = response.headers.get('content-type') || '';
+  if (/text\/html/i.test(contentType) && buffer.slice(0, 300).toString('utf8').includes('<html')) {
+    throw new Error('첨부파일 대신 HTML 페이지가 내려왔어요. 사이트 다운로드 권한이나 URL 구조를 확인해야 해요.');
+  }
+  const disposition = response.headers.get('content-disposition') || '';
+  const fileName = guessFileNameFromHeaders(disposition) || guessFileNameFromUrl(response.url) || '업무추진비_공개자료.xlsx';
+  return { buffer, contentType, fileName, finalUrl: response.url };
+}
 
-          <details class="advanced-box">
-            <summary>고급 옵션: 첨부파일 URL 직접 불러오기</summary>
-            <div class="direct-url-row">
-              <input id="directUrlInput" type="url" placeholder="열린교육 게시글 또는 첨부파일 URL" />
-              <button id="directFetchButton" class="secondary-button" type="button">URL 불러오기</button>
-            </div>
-          </details>
-        </div>
+function guessFileNameFromHeaders(disposition) {
+  if (!disposition) return '';
+  const star = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (star) return decodeURIComponent(star[1].replace(/\+/g, '%20'));
+  const normal = disposition.match(/filename="?([^";]+)"?/i);
+  if (normal) {
+    try { return decodeURIComponent(normal[1]); } catch (_) { return normal[1]; }
+  }
+  return '';
+}
 
-        <pre id="siteStatus" class="status-box">조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.</pre>
-        <div id="siteCandidateList" class="candidate-list"></div>
+function guessFileNameFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const last = parsed.pathname.split('/').filter(Boolean).pop() || '';
+    if (/\.(xlsx|xls|csv)$/i.test(last)) return decodeURIComponent(last);
+    const params = parsed.searchParams;
+    for (const key of ['fileName', 'filename', 'orignlFileNm', 'orgFileNm', 'atchFileNm']) {
+      const value = params.get(key);
+      if (value) return decodeURIComponent(value);
+    }
+  } catch (_) {}
+  return '';
+}
 
-        <div id="siteActionRow" class="site-action-row hidden">
-          <button id="makeMapInlineButton" class="primary-button" type="button">이 자료로 지도 만들기</button>
-          <button id="retryFetchButton" class="secondary-button" type="button">다시 시도</button>
-          <button id="reopenSiteButton" class="secondary-button" type="button">조회조건 다시 열기</button>
-        </div>
-      </section>
+function stripTags(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#40;/g, '(')
+    .replace(/&#41;/g, ')')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-      <section id="upload-card" class="card upload-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Step 1-B</span>
-            <h2>엑셀 직접 업로드</h2>
-          </div>
-          <span class="subtle-pill">.xlsx · .xls · .csv</span>
-        </div>
+function absoluteUrl(url, baseUrl) {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/^['"]|['"]$/g, '');
+  cleaned = cleaned.replace(/&amp;/g, '&');
+  try { return new URL(cleaned, baseUrl).toString(); } catch (_) { return ''; }
+}
 
-        <details id="uploadDetails" open>
-          <summary>자동 수집이 막힐 때만 펼쳐서 사용</summary>
-          <div id="dropZone" class="drop-zone">
-            <div class="upload-icon">↥</div>
-            <strong>엑셀을 직접 올려 지도화하기</strong>
-            <p>열린교육에서 내려받은 업무추진비 엑셀을 그대로 올리면 됩니다.</p>
-            <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
-            <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
-          </div>
-          <div id="sheetRow" class="sheet-row hidden">
-            <label>시트 선택 <select id="sheetSelect"></select></label>
-          </div>
-          <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
-        </details>
-      </section>
+function htmlDecode(text) {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
 
-      <section class="card map-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Step 2</span>
-            <h2>지도에 표시하기</h2>
-          </div>
-          <div class="button-row compact">
-            <button id="makeMapButton" class="primary-button" type="button" disabled>이 자료로 지도 만들기</button>
-            <button id="clearButton" class="secondary-button" type="button">초기화</button>
-          </div>
-        </div>
+function setQuery(url, updates) {
+  const parsed = new URL(url, BASE);
+  for (const [key, value] of Object.entries(updates || {})) {
+    if (value === undefined || value === null || value === '') continue;
+    parsed.searchParams.set(key, String(value));
+  }
+  return parsed.toString();
+}
 
-        <div class="form-grid slim">
-          <label>
-            <span>검색 지역 힌트</span>
-            <input id="regionHintInput" type="text" placeholder="예: 동작구, 강남구" />
-          </label>
-          <label>
-            <span>기관명 메모</span>
-            <input id="agencyInput" type="text" placeholder="필요할 때만 입력" />
-          </label>
-        </div>
+function pageUrls(listUrl, pageLimit = 1, { agency = '', year = '', month = '' } = {}) {
+  const bases = [listUrl];
+  const agencyNorm = String(agency || '').replace(/\s+/g, '');
 
-        <details id="keyDetails" class="key-box">
-          <summary><span id="keyStatusText">Kakao 키 설정</span></summary>
-          <div class="direct-url-row">
-            <input id="kakaoKeyInput" type="password" placeholder="Kakao JavaScript 키" />
-            <button id="saveKeyButton" class="secondary-button" type="button">키 저장</button>
-          </div>
-          <p class="hint">이 설정은 접어두어도 지도 만들기가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
-        </details>
+  if (agencyNorm && AGENCY_CATEGORY_HINTS[agencyNorm]) {
+    bases.unshift(listUrl.replace('/ctgynone/', `/${AGENCY_CATEGORY_HINTS[agencyNorm]}/`));
+  }
 
-        <div id="statsGrid" class="stats-grid">
-          <div><span>총 사용건수</span><strong id="countStat">0</strong></div>
-          <div><span>지도 표시 금액</span><strong id="amountStat">0원</strong></div>
-          <div><span>지도 표시 장소</span><strong id="placeStat">0</strong></div>
-          <div><span>제외 항목</span><strong id="excludedStat">0</strong></div>
-          <div><span>확인 필요</span><strong id="reviewStat">0</strong></div>
-        </div>
+  if (agency) {
+    for (const key of ['searchWrd', 'searchKeyword', 'searchWord', 'q']) {
+      bases.push(setQuery(listUrl, { [key]: agency }));
+      bases.push(setQuery(listUrl, { [key]: `${year}년 ${month}월 ${agency} 업무추진비` }));
+    }
+    bases.push(setQuery(listUrl, { searchCnd: '0', searchWrd: agency }));
+    bases.push(setQuery(listUrl, { searchCnd: '1', searchWrd: agency }));
+  }
 
-        <div id="mapLayout" class="map-layout">
-          <div id="map" class="map-empty"><p>자료를 불러온 뒤 “이 자료로 지도 만들기”를 누르면 지도가 표시됩니다.</p></div>
-        </div>
-      </section>
+  const urls = [];
+  for (const base of bases) {
+    urls.push(base);
+    for (let page = 2; page <= pageLimit; page += 1) {
+      for (const key of ['pageIndex', 'pageNo', 'page']) {
+        urls.push(setQuery(base, { [key]: page }));
+      }
+    }
+  }
+  return [...new Set(urls)];
+}
 
-      <section class="card result-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Result</span>
-            <h2>추출 결과</h2>
-          </div>
-          <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
-        </div>
-        <div class="tab-row" role="tablist">
-          <button class="tab-button active" type="button" data-filter="mapped">지도표시</button>
-          <button class="tab-button" type="button" data-filter="review">확인필요</button>
-          <button class="tab-button" type="button" data-filter="excluded">제외</button>
-          <button class="tab-button" type="button" data-filter="all">전체</button>
-        </div>
-        <div id="resultList" class="result-list empty">아직 읽은 자료가 없습니다.</div>
-      </section>
-    </main>
+function extractTitle(text) {
+  const patterns = [
+    /(\d{4}\s*년\s*\d{1,2}\s*월[^\n]{0,120}?업무추진비[^\n]{0,80}?(?:사용내역|공개)?)/,
+    /(\d{1,2}\s*월[^\n]{0,120}?업무추진비[^\n]{0,80}?(?:사용내역|공개)?)/,
+  ];
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) return m[1].replace(/\s+/g, ' ').trim();
+  }
+  return '';
+}
 
-    <footer class="footer">제작자 senvip · <a href="https://github.com/sen-vip/edu-card-map" target="_blank" rel="noopener">GitHub</a></footer>
-  </div>
+function extractDetailUrl(rowHtml, pageUrl) {
+  const candidates = [];
+  const hrefs = [...rowHtml.matchAll(/href\s*=\s*['"]([^'"]+)['"]/gi)].map(m => htmlDecode(m[1]));
+  const onclicks = [...rowHtml.matchAll(/onclick\s*=\s*['"]([^'"]+)['"]/gi)].map(m => htmlDecode(m[1]));
+  for (const href of hrefs) {
+    if (/view\d*v\.do|view0010v\.do|board.*view|select.*Board/i.test(href)) candidates.push(href);
+  }
+  for (const js of onclicks) {
+    const direct = js.match(/(\/fus\/[^'"\s)]+view[^'"\s)]*|https?:\/\/open\.sen\.go\.kr\/[^'"\s)]+view[^'"\s)]*)/i);
+    if (direct) candidates.push(direct[1]);
+    const quoted = [...js.matchAll(/['"]([^'"]*(?:view0010v\.do|view\d*v\.do|boardSeq|ntt|seq|pst)[^'"]*)['"]/gi)].map(m => m[1]);
+    candidates.push(...quoted);
+  }
+  for (const c of candidates) {
+    const url = absoluteUrl(c, pageUrl);
+    if (url && url.includes('open.sen.go.kr')) return url;
+  }
+  return '';
+}
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="./app.js"></script>
-</body>
-</html>
+function extractRowsFromHtml(html, pageUrl, { year, month, agency = '', latest = false }) {
+  const rows = [];
+  const trMatches = [...html.matchAll(/<tr[\s\S]*?<\/tr>/gi)].map(m => m[0]);
+  const chunks = trMatches.length ? trMatches : html.split(/\n(?=\s*\d+\s+)/g);
+  const y = String(year || '').trim();
+  const m = String(month || '').replace(/^0+/, '').trim();
+  const agencyNorm = agency.replace(/\s+/g, '').trim();
+
+  for (const chunk of chunks) {
+    const text = stripTags(chunk);
+    const compact = text.replace(/\s+/g, '');
+    if (!text.includes('업무추진비')) continue;
+    if (!latest && y && !compact.includes(`${y}년`)) continue;
+    if (!latest && m && !compact.includes(`${m}월`)) continue;
+    if (agencyNorm && !compact.includes(agencyNorm)) continue;
+    if (compact.includes('신용카드') && !compact.includes('업무추진비')) continue;
+
+    const title = extractTitle(text) || text.slice(0, 120);
+    const date = (text.match(/20\d{2}-\d{2}-\d{2}/) || [''])[0];
+    const detailUrl = extractDetailUrl(chunk, pageUrl);
+    rows.push({ title, date, detailUrl, text });
+  }
+
+  // tr 안에서 링크가 누락되는 CMS를 대비해서 제목 주변 HTML 조각도 한 번 더 확인한다.
+  if (!rows.some(row => row.detailUrl)) {
+    for (const row of rows) {
+      const key = row.title.slice(0, Math.min(24, row.title.length));
+      const idx = html.indexOf(key);
+      if (idx >= 0) {
+        const nearby = html.slice(Math.max(0, idx - 2500), Math.min(html.length, idx + 2500));
+        row.detailUrl = extractDetailUrl(nearby, pageUrl);
+      }
+    }
+  }
+
+  return rows;
+}
+
+function extractAttachmentUrls(html, detailUrl) {
+  const urls = [];
+  const anchors = [...html.matchAll(/<a\b[\s\S]*?<\/a>/gi)].map(m => m[0]);
+  for (const a of anchors) {
+    const text = stripTags(a);
+    const href = (a.match(/href\s*=\s*['"]([^'"]+)['"]/i) || [])[1] || '';
+    const onclick = (a.match(/onclick\s*=\s*['"]([^'"]+)['"]/i) || [])[1] || '';
+    const chunk = htmlDecode(`${href} ${onclick} ${text}`);
+    if (!/\.xlsx|\.xls|\.csv|엑셀|첨부|download|file|atch/i.test(chunk)) continue;
+    if (href && !/^javascript:/i.test(href)) urls.push(absoluteUrl(href, detailUrl));
+    const direct = chunk.match(/(\/[^'"\s)]+(?:download|file|File|atch|attach|Down)[^'"\s)]*)/i);
+    if (direct) urls.push(absoluteUrl(direct[1], detailUrl));
+    const urlDirect = chunk.match(/(https?:\/\/open\.sen\.go\.kr\/[^'"\s)]+)/i);
+    if (urlDirect) urls.push(absoluteUrl(urlDirect[1], detailUrl));
+  }
+
+  // 흔한 파일 다운로드 함수 패턴을 보조로 처리한다.
+  const functionCalls = [...html.matchAll(/(?:file|File|atch|attach|download|Down)[A-Za-z0-9_]*\(([^)]*)\)/gi)];
+  for (const call of functionCalls) {
+    const args = [...call[1].matchAll(/['"]([^'"]+)['"]/g)].map(m => m[1]);
+    if (args.length >= 2) {
+      const [id, sn] = args;
+      const guesses = [
+        `/common/file/FileDown.do?atchFileId=${encodeURIComponent(id)}&fileSn=${encodeURIComponent(sn)}`,
+        `/common/file/fileDown.do?atchFileId=${encodeURIComponent(id)}&fileSn=${encodeURIComponent(sn)}`,
+        `/fus/file/fileDown.do?atchFileId=${encodeURIComponent(id)}&fileSn=${encodeURIComponent(sn)}`,
+      ];
+      urls.push(...guesses.map(u => absoluteUrl(u, detailUrl)));
+    }
+  }
+
+  const hrefs = [...html.matchAll(/href\s*=\s*['"]([^'"]+)['"]/gi)].map(m => htmlDecode(m[1]));
+  for (const href of hrefs) {
+    if (/\.(xlsx|xls|csv)(?:\?|$)|download|filedown|atch|attach/i.test(href)) {
+      urls.push(absoluteUrl(href, detailUrl));
+    }
+  }
+
+  return [...new Set(urls.filter(Boolean).filter(url => url.includes('open.sen.go.kr')))].slice(0, 12);
+}
+
+async function findPost({ source = 'chief', year, month, agency = '', latest = false }) {
+  const board = BOARDS[source] || BOARDS.chief;
+  const limit = latest ? 1 : 2;
+  const candidates = [];
+  const notices = [];
+  for (const url of pageUrls(board.listUrl, limit, { agency, year, month })) {
+    try {
+      const html = await fetchText(url);
+      const rows = extractRowsFromHtml(html, url, { year, month, agency, latest });
+      candidates.push(...rows.map(row => ({ ...row, board: board.label, agency: agency || board.agency || '', pageUrl: url })));
+      if (candidates.length) break;
+    } catch (error) {
+      notices.push(`${url}: ${error.message}`);
+    }
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const item of candidates) {
+    const key = `${item.title}|${item.date}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(item);
+    }
+  }
+  return { board, candidates: unique, notices };
+}
+
+async function downloadFromPostUrl(detailUrl) {
+  const safeDetail = assertOpenSenUrl(detailUrl);
+  const detailHtml = await fetchText(safeDetail);
+  const title = extractTitle(stripTags(detailHtml));
+  const attachments = extractAttachmentUrls(detailHtml, safeDetail);
+  if (!attachments.length) {
+    // 입력 URL이 실제 첨부파일 주소일 수 있으므로 바로 다운로드도 시도한다.
+    if (/\.(xlsx|xls|csv)(?:\?|$)|download|filedown|atch|attach/i.test(safeDetail)) {
+      const file = await fetchBinary(safeDetail, BASE);
+      return { ...file, title, detailUrl: safeDetail, attachmentUrl: safeDetail, notices: ['입력한 URL을 첨부파일 주소로 보고 직접 다운로드했어요.'] };
+    }
+    throw new Error('게시글에서 엑셀 첨부파일 링크를 찾지 못했어요. 첨부파일을 직접 내려받아 업로드해주세요.');
+  }
+  const errors = [];
+  for (const attachmentUrl of attachments) {
+    try {
+      const file = await fetchBinary(attachmentUrl, safeDetail);
+      return { ...file, title, detailUrl: safeDetail, attachmentUrl, notices: [] };
+    } catch (error) {
+      errors.push(`${attachmentUrl}: ${error.message}`);
+    }
+  }
+  throw new Error(`첨부파일 후보는 찾았지만 다운로드하지 못했어요. ${errors[0] || ''}`);
+}
+
+
+function isExcelLike(buffer, fileName = '', contentType = '') {
+  if (!buffer || buffer.length < 20) return false;
+  const name = String(fileName || '').toLowerCase();
+  const ctype = String(contentType || '').toLowerCase();
+  const head = buffer.slice(0, 2048);
+  const lower = head.toString('utf8').toLowerCase();
+  if (lower.includes('<html') || lower.includes('<!doctype html')) return false;
+  if (/\.(xlsx|xls|csv)$/i.test(name)) return true;
+  if (/spreadsheet|excel|csv|octet-stream/.test(ctype)) return true;
+  if (buffer[0] === 0x50 && buffer[1] === 0x4b) return true; // xlsx zip
+  if (buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0) return true; // old xls
+  if (/사용일자|사용일시|사용장소|집행내역|업무추진비|금액/.test(lower)) return true;
+  return false;
+}
+
+async function launchPlaywrightBrowser() {
+  const { chromium: playwrightChromium } = require('playwright-core');
+  let launchOptions = { headless: true };
+  try {
+    const chromium = require('@sparticuz/chromium');
+    const executablePath = await chromium.executablePath();
+    launchOptions = {
+      args: chromium.args,
+      executablePath,
+      headless: chromium.headless !== false,
+    };
+  } catch (_) {
+    // 로컬 개발 환경에서는 시스템 chromium이나 Playwright 기본 설정을 사용한다.
+    launchOptions = { headless: true };
+  }
+  return await playwrightChromium.launch(launchOptions);
+}
+
+async function clickPostTitle(page, targetTitle, logs) {
+  const variants = [...new Set([
+    targetTitle,
+    String(targetTitle || '').replace(/\s+/g, ' ').trim(),
+    String(targetTitle || '').slice(0, 48),
+    String(targetTitle || '').slice(0, 32),
+  ].filter(Boolean))];
+
+  for (const text of variants) {
+    try {
+      const locator = page.getByText(text, { exact: false }).first();
+      if (await locator.count()) {
+        try {
+          await Promise.all([
+            page.waitForLoadState('networkidle', { timeout: 9000 }).catch(() => null),
+            locator.click({ timeout: 7000 }),
+          ]);
+        } catch (_) {
+          await locator.click({ timeout: 7000 });
+          await page.waitForTimeout(1500);
+        }
+        logs.push(`게시글 클릭: ${text}`);
+        return true;
+      }
+    } catch (error) {
+      logs.push(`제목 클릭 후보 실패: ${text} / ${error.message}`);
+    }
+  }
+
+  try {
+    const clicked = await page.evaluate((title) => {
+      const compact = (s) => String(s || '').replace(/\s+/g, '');
+      const key = compact(title).slice(0, 24);
+      const nodes = [...document.querySelectorAll('a,button,td,span')];
+      const el = nodes.find(node => compact(node.innerText || node.textContent || '').includes(key));
+      if (!el) return false;
+      el.click();
+      return true;
+    }, targetTitle);
+    if (clicked) {
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null);
+      await page.waitForTimeout(1200);
+      logs.push('JS 클릭으로 게시글 열기 시도');
+      return true;
+    }
+  } catch (error) {
+    logs.push(`JS 클릭 실패: ${error.message}`);
+  }
+  return false;
+}
+
+async function browserAutoDownload(params = {}) {
+  const source = params.source || 'chief';
+  const board = BOARDS[source] || BOARDS.chief;
+  const logs = [];
+  const { candidates, notices } = await findPost(params);
+  logs.push(...(notices || []).slice(0, 4));
+
+  if (!candidates.length) {
+    throw Object.assign(new Error('게시글 후보를 찾지 못해서 브라우저 자동 다운로드를 시작할 수 없어요.'), { candidates, notices, logs });
+  }
+
+  const target = candidates[0];
+  const targetTitle = target.title || '';
+  const pageUrl = target.pageUrl || board.listUrl;
+  logs.push(`후보 선택: ${targetTitle || '제목 없음'}`);
+  logs.push(`목록 접속: ${pageUrl}`);
+
+  let browser;
+  try {
+    browser = await launchPlaywrightBrowser();
+    const context = await browser.newContext({
+      acceptDownloads: true,
+      locale: 'ko-KR',
+      userAgent: UA,
+      viewport: { width: 1440, height: 1000 },
+    });
+    const page = await context.newPage();
+    await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(async () => {
+      await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    });
+    logs.push('목록 페이지 열림');
+
+    const clicked = await clickPostTitle(page, targetTitle, logs);
+    if (!clicked) {
+      throw Object.assign(new Error('게시글 후보는 찾았지만 실제 브라우저 클릭에 실패했어요.'), { candidates, notices, logs });
+    }
+    logs.push(`현재 페이지: ${page.url()}`);
+
+    const candidateHandles = [];
+    const count = Math.min(await page.locator('a,button').count(), 350);
+    for (let i = 0; i < count; i += 1) {
+      const el = page.locator('a,button').nth(i);
+      let text = '', href = '', onclick = '';
+      try { text = (await el.innerText({ timeout: 700 }) || '').trim(); } catch (_) {}
+      try { href = await el.getAttribute('href') || ''; } catch (_) {}
+      try { onclick = await el.getAttribute('onclick') || ''; } catch (_) {}
+      const blob = `${text} ${href} ${onclick}`;
+      if (/xlsx|xls|csv|엑셀|첨부|다운|download|filedown|file|atch|attach/i.test(blob)) {
+        candidateHandles.push({ i, text, href, onclick });
+      }
+    }
+    logs.push(`첨부 클릭 후보 ${candidateHandles.length}개`);
+
+    const errors = [];
+    for (const item of candidateHandles.slice(0, 25)) {
+      const el = page.locator('a,button').nth(item.i);
+      try {
+        const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
+        await el.click({ timeout: 7000 });
+        const download = await downloadPromise;
+        const suggested = download.suggestedFilename() || guessFileNameFromUrl(item.href) || '업무추진비_공개자료.xlsx';
+        const path = await download.path();
+        const fs = require('fs');
+        const buffer = fs.readFileSync(path);
+        if (!isExcelLike(buffer, suggested, '')) throw new Error(`엑셀 파일로 보이지 않음: ${suggested}`);
+        logs.push(`다운로드 성공: ${suggested}`);
+        await browser.close();
+        return {
+          buffer,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          fileName: suggested,
+          finalUrl: page.url(),
+          title: targetTitle,
+          agency: params.agency || target.agency || board.agency || '',
+          detailUrl: page.url(),
+          attachmentUrl: item.href || '',
+          candidates,
+          notices,
+          logs,
+        };
+      } catch (error) {
+        errors.push(`${item.text || item.href || item.onclick.slice(0, 40) || item.i}: ${error.message}`);
+      }
+    }
+
+    for (const item of candidateHandles.slice(0, 25)) {
+      if (!item.href || /^javascript:/i.test(item.href)) continue;
+      try {
+        const url = absoluteUrl(item.href, page.url());
+        if (!url) continue;
+        const response = await context.request.get(url, { headers: { Referer: page.url() }, timeout: 15000 });
+        const body = Buffer.from(await response.body());
+        const name = guessFileNameFromUrl(url) || '업무추진비_공개자료.xlsx';
+        const ctype = response.headers()['content-type'] || '';
+        if (response.ok() && isExcelLike(body, name, ctype)) {
+          logs.push(`href 직접 다운로드 성공: ${name}`);
+          await browser.close();
+          return {
+            buffer: body,
+            contentType: ctype,
+            fileName: name,
+            finalUrl: url,
+            title: targetTitle,
+            agency: params.agency || target.agency || board.agency || '',
+            detailUrl: page.url(),
+            attachmentUrl: url,
+            candidates,
+            notices,
+            logs,
+          };
+        }
+      } catch (error) {
+        errors.push(`href fallback ${item.href}: ${error.message}`);
+      }
+    }
+
+    throw Object.assign(new Error('게시글은 열었지만 첨부 엑셀 다운로드 버튼을 확정하지 못했어요.'), {
+      candidates,
+      notices,
+      logs: logs.concat(errors.slice(-10)),
+    });
+  } catch (error) {
+    if (browser) await browser.close().catch(() => null);
+    if (!error.logs) error.logs = logs;
+    if (!error.candidates) error.candidates = candidates;
+    if (!error.notices) error.notices = notices;
+    throw error;
+  }
+}
+
+async function autoDownload(params) {
+  if (params.directUrl) return await downloadFromPostUrl(params.directUrl);
+  const { board, candidates, notices } = await findPost(params);
+  if (!candidates.length) {
+    throw Object.assign(new Error('조건에 맞는 업무추진비 게시글을 찾지 못했어요.'), { candidates, notices });
+  }
+  const firstWithUrl = candidates.find(item => item.detailUrl) || candidates[0];
+  if (!firstWithUrl.detailUrl) {
+    throw Object.assign(new Error('게시글 후보는 찾았지만 상세 URL을 추출하지 못했어요. 게시글을 직접 열어 URL을 붙여넣어 주세요.'), { candidates, notices });
+  }
+  const file = await downloadFromPostUrl(firstWithUrl.detailUrl);
+  return {
+    ...file,
+    title: file.title || firstWithUrl.title,
+    agency: params.agency || firstWithUrl.agency || board.agency || '',
+    candidates,
+    notices,
+  };
+}
+
+module.exports = {
+  BOARDS,
+  autoDownload,
+  browserAutoDownload,
+  findPost,
+};

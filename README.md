@@ -1,74 +1,201 @@
-# 교육청 법카맵
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>교육청 법카맵</title>
+  <meta name="description" content="서울교육 업무추진비 공개자료 엑셀을 지도와 목록으로 확인하는 웹앱" />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero-card">
+      <div class="hero-copy">
+        <span class="eyebrow">LC · Public expense map</span>
+        <h1>교육청 법카맵</h1>
+        <p>서울 열린교육 업무추진비 공개자료를 자동으로 가져오고, 사용장소·금액·확인필요 항목을 지도와 목록으로 정리합니다.</p>
+        <div class="hero-actions">
+          <a id="heroPublicSiteLink" class="ghost-link" href="https://open.sen.go.kr" target="_blank" rel="noopener">사용내역 공개사이트 바로가기</a>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <strong>오늘 할 수 있는 것</strong>
+        <ul>
+          <li>첨부 엑셀 자동 가져오기</li>
+          <li>직접 업로드로 지도 만들기</li>
+          <li>경조사비·쇼핑몰·개인지급 제외</li>
+          <li>확인필요 항목 따로 보기</li>
+        </ul>
+      </div>
+    </header>
 
-서울교육 업무추진비 공개자료를 자동으로 가져와 지도와 목록으로 확인하는 웹앱입니다.
+    <main class="main-grid">
+      <section id="site-card" class="card site-card">
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Step 1</span>
+            <h2>서울 열린교육 게시판에서 가져오기</h2>
+          </div>
+          <div class="head-actions">
+            <button id="collapseSiteButton" class="icon-button" type="button" title="조건 접기/펼치기">⌃</button>
+            <button id="closeSiteButton" class="icon-button" type="button" title="검색 패널 닫기">×</button>
+          </div>
+        </div>
 
-## v3.7.0 Vercel 백엔드 준비판
+        <div id="querySummary" class="query-summary hidden">
+          <span id="querySummaryText">조회조건을 선택해주세요.</span>
+          <button id="expandSiteButton" class="text-button" type="button">조건 펼치기</button>
+        </div>
 
-이번 버전은 GitHub Pages 정적 배포에서 빠졌던 `/api` 백엔드를 Vercel 배포 구조로 보완했습니다.
+        <div id="configPanel" class="config-panel">
+          <div class="form-grid">
+            <label>
+              <span>기준월</span>
+              <input id="siteYearMonthInput" type="month" />
+              <input id="siteYearInput" type="hidden" />
+              <input id="siteMonthInput" type="hidden" />
+            </label>
 
-### 반영 내용
+            <label>
+              <span>게시판</span>
+              <select id="siteSourceSelect">
+                <option value="chief">교육감 업무추진비</option>
+                <option value="vice">부교육감 업무추진비</option>
+                <option value="org">본청·교육지원청·직속기관</option>
+              </select>
+            </label>
 
-- `/api/sen-browser` 추가: 프론트의 자동 수집 버튼과 연결
-- `/api/sen-find` 추가: 게시글 후보 찾기 버튼과 연결
-- `/api/sen-auto` 정리: 직접 URL 불러오기와 공통 자동 다운로드 담당
-- `lib/sen-scraper.js` 재사용: 열린교육 게시판 검색, 상세글 확인, 첨부파일 다운로드
-- `vercel.json` 추가: Vercel Functions 실행 시간과 API 캐시 방지 설정
-- `server.js` 추가: 로컬에서도 Vercel API와 비슷한 방식으로 테스트 가능
-- `README.md`를 Vercel 배포 기준으로 정리
+            <label id="agencyComboWrap" class="combo-wrap">
+              <span>하위항목</span>
+              <div class="combo-line">
+                <input id="siteAgencyInput" type="text" placeholder="예: 동작관악교육지원청, 총무과" autocomplete="off" />
+                <button id="agencyComboButton" type="button" title="하위항목 펼치기">⌄</button>
+              </div>
+              <div id="agencySuggestionList" class="combo-list hidden" role="listbox"></div>
+            </label>
+          </div>
 
-## 폴더 구조
+          <div class="button-row site-buttons">
+            <button id="autoExcelButton" class="primary-button" type="button">첨부 엑셀 자동 가져오기</button>
+            <a id="publicSiteLink" class="secondary-button" href="https://open.sen.go.kr" target="_blank" rel="noopener">사용내역 공개사이트 바로가기</a>
+            <button id="stopFetchButton" class="secondary-button danger hidden" type="button">수집 중지</button>
+            <button id="fetchSiteButton" class="secondary-button" type="button">게시글 후보만 찾기</button>
+            <button id="loadLatestButton" class="secondary-button" type="button">최신자료 찾기</button>
+            <button id="resetFlowButton" class="secondary-button" type="button">새로 시작하기</button>
+          </div>
 
-```txt
-edu-card-map/
-├─ index.html
-├─ style.css
-├─ app.js
-├─ lib/
-│  └─ sen-scraper.js
-├─ api/
-│  ├─ sen-browser.js
-│  ├─ sen-find.js
-│  └─ sen-auto.js
-├─ package.json
-├─ vercel.json
-└─ server.js
-```
+          <details class="advanced-box">
+            <summary>고급 옵션: 첨부파일 URL 직접 불러오기</summary>
+            <div class="direct-url-row">
+              <input id="directUrlInput" type="url" placeholder="열린교육 게시글 또는 첨부파일 URL" />
+              <button id="directFetchButton" class="secondary-button" type="button">URL 불러오기</button>
+            </div>
+          </details>
+        </div>
 
-## Vercel 배포
+        <pre id="siteStatus" class="status-box">조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.</pre>
+        <div id="siteCandidateList" class="candidate-list"></div>
 
-1. GitHub 저장소에 이 파일들을 업로드합니다.
-2. Vercel에서 `Add New Project`를 누릅니다.
-3. `edu-card-map` 저장소를 선택합니다.
-4. Framework Preset은 `Other`로 두고 배포합니다.
-5. 배포 주소가 나오면 Kakao Developers의 JavaScript 키 허용 도메인에 추가합니다.
+        <div id="siteActionRow" class="site-action-row hidden">
+          <button id="makeMapInlineButton" class="primary-button" type="button">이 자료로 지도 만들기</button>
+          <button id="retryFetchButton" class="secondary-button" type="button">다시 시도</button>
+          <button id="reopenSiteButton" class="secondary-button" type="button">조회조건 다시 열기</button>
+        </div>
+      </section>
 
-예시:
+      <section id="upload-card" class="card upload-card">
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Step 1-B</span>
+            <h2>엑셀 직접 업로드</h2>
+          </div>
+          <span class="subtle-pill">.xlsx · .xls · .csv</span>
+        </div>
 
-```txt
-https://edu-card-map.vercel.app
-```
+        <details id="uploadDetails" open>
+          <summary>자동 수집이 막힐 때만 펼쳐서 사용</summary>
+          <div id="dropZone" class="drop-zone">
+            <div class="upload-icon">↥</div>
+            <strong>엑셀을 직접 올려 지도화하기</strong>
+            <p>열린교육에서 내려받은 업무추진비 엑셀을 그대로 올리면 됩니다.</p>
+            <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
+            <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
+          </div>
+          <div id="sheetRow" class="sheet-row hidden">
+            <label>시트 선택 <select id="sheetSelect"></select></label>
+          </div>
+          <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
+        </details>
+      </section>
 
-## 로컬 테스트
+      <section class="card map-card">
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Step 2</span>
+            <h2>지도에 표시하기</h2>
+          </div>
+          <div class="button-row compact">
+            <button id="makeMapButton" class="primary-button" type="button" disabled>이 자료로 지도 만들기</button>
+            <button id="clearButton" class="secondary-button" type="button">초기화</button>
+          </div>
+        </div>
 
-Node.js 18 이상에서 실행합니다.
+        <div class="form-grid slim">
+          <label>
+            <span>검색 지역 힌트</span>
+            <input id="regionHintInput" type="text" placeholder="예: 동작구, 강남구" />
+          </label>
+          <label>
+            <span>기관명 메모</span>
+            <input id="agencyInput" type="text" placeholder="필요할 때만 입력" />
+          </label>
+        </div>
 
-```bash
-npm install
-npm run dev
-```
+        <details id="keyDetails" class="key-box">
+          <summary><span id="keyStatusText">Kakao 키 설정</span></summary>
+          <div class="direct-url-row">
+            <input id="kakaoKeyInput" type="password" placeholder="Kakao JavaScript 키" />
+            <button id="saveKeyButton" class="secondary-button" type="button">키 저장</button>
+          </div>
+          <p class="hint">이 설정은 접어두어도 지도 만들기가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
+        </details>
 
-브라우저에서 접속합니다.
+        <div id="statsGrid" class="stats-grid">
+          <div><span>총 사용건수</span><strong id="countStat">0</strong></div>
+          <div><span>지도 표시 금액</span><strong id="amountStat">0원</strong></div>
+          <div><span>지도 표시 장소</span><strong id="placeStat">0</strong></div>
+          <div><span>제외 항목</span><strong id="excludedStat">0</strong></div>
+          <div><span>확인 필요</span><strong id="reviewStat">0</strong></div>
+        </div>
 
-```txt
-http://localhost:3000
-```
+        <div id="mapLayout" class="map-layout">
+          <div id="map" class="map-empty"><p>자료를 불러온 뒤 “이 자료로 지도 만들기”를 누르면 지도가 표시됩니다.</p></div>
+        </div>
+      </section>
 
-## Kakao 지도 키
+      <section class="card result-card">
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Result</span>
+            <h2>추출 결과</h2>
+          </div>
+          <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
+        </div>
+        <div class="tab-row" role="tablist">
+          <button class="tab-button active" type="button" data-filter="mapped">지도표시</button>
+          <button class="tab-button" type="button" data-filter="review">확인필요</button>
+          <button class="tab-button" type="button" data-filter="excluded">제외</button>
+          <button class="tab-button" type="button" data-filter="all">전체</button>
+        </div>
+        <div id="resultList" class="result-list empty">아직 읽은 자료가 없습니다.</div>
+      </section>
+    </main>
 
-Kakao JavaScript 키는 브라우저 `localStorage`에 저장됩니다. Vercel 배포 주소를 Kakao Developers의 허용 도메인에 등록해야 지도 표시가 정상 작동합니다.
+    <footer class="footer">제작자 senvip · <a href="https://github.com/sen-vip/edu-card-map" target="_blank" rel="noopener">GitHub</a></footer>
+  </div>
 
-## 주의
-
-- 열린교육 게시판 구조가 바뀌면 자동 수집이 실패할 수 있습니다.
-- 자동 수집이 막히면 엑셀을 직접 내려받아 업로드할 수 있습니다.
-- 위치는 Kakao 장소 검색 결과를 바탕으로 추정하므로 확인필요 항목은 원자료와 대조하세요.
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
