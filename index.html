@@ -171,19 +171,46 @@
       </section>
 
       <section class="card result-card">
-        <div class="card-head">
+        <div class="card-head result-head">
           <div>
             <span class="step-badge">Result</span>
             <h2>추출 결과</h2>
+            <p class="section-subtitle">상호명·금액·상태를 먼저 보고, 확인이 필요한 항목만 빠르게 골라낼 수 있어요.</p>
           </div>
-          <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
+          <div class="result-head-actions">
+            <div class="view-toggle" aria-label="결과 보기 방식">
+              <button id="cardViewButton" class="view-button active" type="button" data-view="card">카드</button>
+              <button id="tableViewButton" class="view-button" type="button" data-view="table">표</button>
+            </div>
+            <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
+          </div>
         </div>
-        <div class="tab-row" role="tablist">
-          <button class="tab-button active" type="button" data-filter="mapped">지도표시</button>
-          <button class="tab-button" type="button" data-filter="review">확인필요</button>
-          <button class="tab-button" type="button" data-filter="excluded">제외</button>
-          <button class="tab-button" type="button" data-filter="all">전체</button>
+
+        <div id="resultSummaryGrid" class="result-summary-grid" aria-label="결과 요약">
+          <div class="summary-card total"><span>전체</span><strong id="summaryTotal">0</strong></div>
+          <div class="summary-card mapped"><span>지도표시</span><strong id="summaryMapped">0</strong></div>
+          <div class="summary-card review"><span>확인필요</span><strong id="summaryReview">0</strong></div>
+          <div class="summary-card excluded"><span>제외</span><strong id="summaryExcluded">0</strong></div>
+          <div class="summary-card amount"><span>지도표시 금액</span><strong id="summaryAmount">0원</strong></div>
         </div>
+
+        <div class="result-toolbar">
+          <div class="tab-row" role="tablist" aria-label="결과 상태 필터">
+            <button class="tab-button active" type="button" data-filter="mapped">지도표시 <span data-count-for="mapped">0</span></button>
+            <button class="tab-button" type="button" data-filter="review">확인필요 <span data-count-for="review">0</span></button>
+            <button class="tab-button" type="button" data-filter="excluded">제외 <span data-count-for="excluded">0</span></button>
+            <button class="tab-button" type="button" data-filter="all">전체 <span data-count-for="all">0</span></button>
+          </div>
+          <label class="sort-control">
+            <span>정렬</span>
+            <select id="resultSortSelect">
+              <option value="dateDesc">최신순</option>
+              <option value="amountDesc">금액 큰 순</option>
+              <option value="placeAsc">상호명순</option>
+            </select>
+          </label>
+        </div>
+
         <div id="resultList" class="result-list empty">아직 읽은 자료가 없습니다.</div>
       </section>
     </main>

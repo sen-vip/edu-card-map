@@ -1,6 +1,6 @@
 {
   "name": "edu-card-map",
-  "version": "3.7.6-network-detail-capture",
+  "version": "3.7.7-result-ui-cards",
   "private": true,
   "description": "교육청 법카맵 - 서울교육 업무추진비 공개자료 지도화",
   "scripts": {

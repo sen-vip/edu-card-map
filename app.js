@@ -17,6 +17,8 @@ const state = {
   loadingTimer: null,
   loadingMessage: '',
   mapReady: false,
+  viewMode: 'card',
+  sortMode: 'dateDesc',
 };
 
 const els = {
@@ -75,6 +77,15 @@ const els = {
   configPanel: document.getElementById('configPanel'),
   statsGrid: document.getElementById('statsGrid'),
   mapLayout: document.getElementById('mapLayout'),
+  resultSummaryGrid: document.getElementById('resultSummaryGrid'),
+  summaryTotal: document.getElementById('summaryTotal'),
+  summaryMapped: document.getElementById('summaryMapped'),
+  summaryReview: document.getElementById('summaryReview'),
+  summaryExcluded: document.getElementById('summaryExcluded'),
+  summaryAmount: document.getElementById('summaryAmount'),
+  resultSortSelect: document.getElementById('resultSortSelect'),
+  cardViewButton: document.getElementById('cardViewButton'),
+  tableViewButton: document.getElementById('tableViewButton'),
 };
 
 const BOARD_LIST_URLS = {
@@ -592,17 +603,44 @@ function renderAll() {
   renderMapMarkers();
 }
 
+function getResultCounts() {
+  const counts = {
+    all: state.rows.length,
+    mapped: state.rows.filter(row => row.status === 'mapped').length,
+    review: state.rows.filter(row => row.status === 'review').length,
+    excluded: state.rows.filter(row => row.status === 'excluded').length,
+  };
+  counts.active = counts[state.filter] ?? counts.all;
+  return counts;
+}
+
+function getMappedAmount() {
+  return state.rows
+    .filter(row => row.status === 'mapped')
+    .reduce((sum, row) => sum + (row.amount || 0), 0);
+}
+
 function renderStats() {
   const mapTargetRows = state.rows.filter(row => row.status !== 'excluded');
   const totalAmount = mapTargetRows.reduce((sum, row) => sum + (row.amount || 0), 0);
   const uniquePlaces = new Set(mapTargetRows.map(row => row.place).filter(Boolean));
-  const reviewCount = state.rows.filter(row => row.status === 'review').length;
-  const excludedCount = state.rows.filter(row => row.status === 'excluded').length;
+  const counts = getResultCounts();
   els.countStat.textContent = state.rows.length.toLocaleString('ko-KR');
   els.amountStat.textContent = formatWon(totalAmount);
   els.placeStat.textContent = uniquePlaces.size.toLocaleString('ko-KR');
-  els.reviewStat.textContent = reviewCount.toLocaleString('ko-KR');
-  if (els.excludedStat) els.excludedStat.textContent = excludedCount.toLocaleString('ko-KR');
+  els.reviewStat.textContent = counts.review.toLocaleString('ko-KR');
+  if (els.excludedStat) els.excludedStat.textContent = counts.excluded.toLocaleString('ko-KR');
+
+  if (els.summaryTotal) els.summaryTotal.textContent = counts.all.toLocaleString('ko-KR');
+  if (els.summaryMapped) els.summaryMapped.textContent = counts.mapped.toLocaleString('ko-KR');
+  if (els.summaryReview) els.summaryReview.textContent = counts.review.toLocaleString('ko-KR');
+  if (els.summaryExcluded) els.summaryExcluded.textContent = counts.excluded.toLocaleString('ko-KR');
+  if (els.summaryAmount) els.summaryAmount.textContent = formatWon(getMappedAmount());
+
+  document.querySelectorAll('[data-count-for]').forEach(item => {
+    const key = item.getAttribute('data-count-for');
+    item.textContent = (counts[key] ?? 0).toLocaleString('ko-KR');
+  });
 }
 
 function filteredRows() {
@@ -612,41 +650,185 @@ function filteredRows() {
   return state.rows;
 }
 
+function sortedRows(rows) {
+  const list = [...rows];
+  if (state.sortMode === 'amountDesc') {
+    list.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  } else if (state.sortMode === 'placeAsc') {
+    list.sort((a, b) => String(a.place || '').localeCompare(String(b.place || ''), 'ko'));
+  } else {
+    list.sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'ko'));
+  }
+  return list;
+}
+
+function statusInfo(row) {
+  if (row.status === 'mapped') return { label: '지도표시', className: 'mapped', helper: '지도에 표시할 수 있어요.' };
+  if (row.status === 'review') return { label: '확인필요', className: 'review', helper: row.reason || '주소나 상호명을 확인해 주세요.' };
+  if (row.status === 'excluded') return { label: '제외', className: 'excluded', helper: row.reason || '지도 표시 대상에서 제외했어요.' };
+  return { label: '대기', className: 'pending', helper: row.reason || '지도 검색 전이에요.' };
+}
+
+function compactText(value, max = 74) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text || text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
 function renderList() {
-  const rows = filteredRows();
-  if (!rows.length) {
+  const rows = sortedRows(filteredRows());
+  renderStats();
+
+  if (!state.rows.length) {
     els.resultList.className = 'result-list empty-list';
-    els.resultList.innerHTML = '<p>표시할 결과가 없습니다.</p>';
+    els.resultList.innerHTML = '<p>자료를 불러오면 결과가 여기에 정리됩니다.</p>';
     return;
   }
 
-  els.resultList.className = 'result-list';
-  els.resultList.innerHTML = rows.map(row => {
-    const statusLabel = row.status === 'mapped' ? '지도표시' : row.status === 'review' ? '확인필요' : row.status === 'excluded' ? '제외' : '대기';
-    const statusClass = row.status === 'mapped' ? 'mapped' : row.status === 'review' ? 'review' : row.status === 'excluded' ? 'excluded' : 'pending';
-    const address = row.address ? `<div><b>검색결과</b> ${escapeHtml(row.matchedName)} · ${escapeHtml(row.address)}</div>` : '';
-    const reason = row.reason ? `<div><b>분류사유</b> ${escapeHtml(row.reason)}</div>` : '';
+  if (!rows.length) {
+    els.resultList.className = 'result-list empty-list';
+    els.resultList.innerHTML = '<p>이 상태에 해당하는 결과가 없습니다.</p>';
+    return;
+  }
+
+  els.resultList.className = state.viewMode === 'table' ? 'result-list table-mode' : 'result-list card-mode';
+  els.resultList.innerHTML = state.viewMode === 'table' ? renderResultTable(rows) : renderResultCards(rows);
+
+  els.resultList.querySelectorAll('[data-row-id]').forEach(card => {
+    card.addEventListener('click', event => {
+      if (event.target.closest('[data-action]')) return;
+      focusRowOnMap(card.dataset.rowId);
+    });
+  });
+
+  els.resultList.querySelectorAll('[data-action]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      handleResultAction(button.dataset.action, button.dataset.rowId);
+    });
+  });
+}
+
+function renderResultCards(rows) {
+  return rows.map(row => {
+    const status = statusInfo(row);
+    const addressText = row.address ? `${row.matchedName || row.place || ''} · ${row.address}` : '';
+    const hasMap = row.lat && row.lng;
     return `
-      <article class="result-item ${statusClass}" data-row-id="${escapeHtml(row.id)}">
-        <div class="result-title">
-          <strong>${escapeHtml(row.place || '사용장소 없음')}</strong>
-          <span class="badge ${statusClass}">${statusLabel}</span>
+      <article class="result-item ${status.className}" data-row-id="${escapeHtml(row.id)}">
+        <div class="result-main-line">
+          <div class="result-place-wrap">
+            <strong class="result-place">${escapeHtml(row.place || '사용장소 없음')}</strong>
+            <span class="status-badge ${status.className}">${status.label}</span>
+          </div>
+          <strong class="result-amount">${escapeHtml(formatWon(row.amount || 0))}</strong>
         </div>
-        <div class="result-meta-grid">
-          ${row.date ? `<div><b>일시</b> ${escapeHtml(row.date)}</div>` : ''}
-          ${row.department ? `<div><b>기관</b> ${escapeHtml(row.department)}</div>` : ''}
-          ${row.amount ? `<div><b>금액</b> ${escapeHtml(formatWon(row.amount))}</div>` : ''}
-          ${row.method ? `<div><b>결제</b> ${escapeHtml(row.method)}</div>` : ''}
+
+        <div class="quick-meta">
+          ${row.date ? `<span>일시 ${escapeHtml(row.date)}</span>` : ''}
+          ${row.department ? `<span>기관 ${escapeHtml(row.department)}</span>` : ''}
+          ${row.method ? `<span>결제 ${escapeHtml(row.method)}</span>` : ''}
         </div>
-        ${row.purpose ? `<p class="result-purpose">${escapeHtml(row.purpose)}</p>` : ''}
-        ${(address || reason) ? `<div class="result-meta-grid">${address || reason}</div>` : ''}
+
+        ${row.purpose ? `<p class="result-purpose" title="${escapeHtml(row.purpose)}">${escapeHtml(compactText(row.purpose, 92))}</p>` : ''}
+
+        <div class="result-detail-row ${status.className}">
+          <span class="detail-label">${row.address ? '지도검색' : '상태사유'}</span>
+          <span class="detail-value" title="${escapeHtml(addressText || status.helper)}">${escapeHtml(compactText(addressText || status.helper, 96))}</span>
+        </div>
+
+        <div class="result-actions">
+          ${hasMap ? `<button class="mini-button" type="button" data-action="map" data-row-id="${escapeHtml(row.id)}">지도에서 보기</button>` : ''}
+          ${row.address ? `<button class="mini-button" type="button" data-action="copy" data-row-id="${escapeHtml(row.id)}">주소 복사</button>` : ''}
+          ${row.status !== 'review' ? `<button class="mini-button soft-review" type="button" data-action="review" data-row-id="${escapeHtml(row.id)}">확인필요</button>` : ''}
+          ${row.status !== 'excluded' ? `<button class="mini-button soft-exclude" type="button" data-action="exclude" data-row-id="${escapeHtml(row.id)}">제외</button>` : `<button class="mini-button" type="button" data-action="restore" data-row-id="${escapeHtml(row.id)}">되돌리기</button>`}
+        </div>
       </article>
     `;
   }).join('');
+}
 
-  els.resultList.querySelectorAll('[data-row-id]').forEach(card => {
-    card.addEventListener('click', () => focusRowOnMap(card.dataset.rowId));
-  });
+function renderResultTable(rows) {
+  const body = rows.map(row => {
+    const status = statusInfo(row);
+    const address = row.address || row.reason || '';
+    return `
+      <tr class="${status.className}" data-row-id="${escapeHtml(row.id)}">
+        <td><span class="status-badge ${status.className}">${status.label}</span></td>
+        <td><strong>${escapeHtml(row.place || '사용장소 없음')}</strong><small>${escapeHtml(compactText(row.purpose, 54))}</small></td>
+        <td>${escapeHtml(row.date || '')}</td>
+        <td class="number-cell">${escapeHtml(formatWon(row.amount || 0))}</td>
+        <td title="${escapeHtml(address)}">${escapeHtml(compactText(address, 54))}</td>
+        <td>
+          <div class="table-actions">
+            ${row.lat && row.lng ? `<button class="mini-button" type="button" data-action="map" data-row-id="${escapeHtml(row.id)}">지도</button>` : ''}
+            ${row.status !== 'excluded' ? `<button class="mini-button soft-exclude" type="button" data-action="exclude" data-row-id="${escapeHtml(row.id)}">제외</button>` : `<button class="mini-button" type="button" data-action="restore" data-row-id="${escapeHtml(row.id)}">복구</button>`}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  return `
+    <div class="result-table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr><th>상태</th><th>상호/내용</th><th>일시</th><th>금액</th><th>주소·사유</th><th>작업</th></tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function handleResultAction(action, rowId) {
+  const row = state.rows.find(item => item.id === rowId);
+  if (!row) return;
+
+  if (action === 'map') {
+    focusRowOnMap(rowId);
+    document.querySelector('.map-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  if (action === 'copy') {
+    const text = [row.matchedName || row.place, row.address].filter(Boolean).join(' · ');
+    copyText(text || row.place || '');
+    return;
+  }
+
+  if (action === 'review') {
+    row.status = 'review';
+    row.reason = '사용자가 확인필요로 표시했어요.';
+  } else if (action === 'exclude') {
+    row.status = 'excluded';
+    row.reason = '사용자가 제외했어요.';
+  } else if (action === 'restore') {
+    row.status = row.lat && row.lng ? 'mapped' : 'review';
+    row.reason = row.lat && row.lng ? '자동 표시됨' : '복구 후 확인이 필요해요.';
+  }
+  renderAll();
+}
+
+function copyText(text) {
+  if (!text) return;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast('주소를 복사했어요.')).catch(() => fallbackCopyText(text));
+  } else {
+    fallbackCopyText(text);
+  }
+}
+
+function fallbackCopyText(text) {
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
+  showToast('주소를 복사했어요.');
 }
 
 function escapeHtml(value) {
@@ -1364,6 +1546,14 @@ function setActiveFilter(filter) {
   renderMapMarkers();
 }
 
+function setViewMode(viewMode) {
+  state.viewMode = viewMode === 'table' ? 'table' : 'card';
+  [els.cardViewButton, els.tableViewButton].filter(Boolean).forEach(button => {
+    button.classList.toggle('active', button.dataset.view === state.viewMode);
+  });
+  renderList();
+}
+
 function downloadCsv() {
   if (!state.rows.length) return;
   const headers = ['일자', '기관/부서', '사용장소', '금액', '목적', '집행대상', '분류', '분류사유', '검색장소명', '주소', '위도', '경도'];
@@ -1531,6 +1721,15 @@ document.addEventListener('click', event => {
 
 document.querySelectorAll('.tab-button').forEach(button => {
   button.addEventListener('click', () => setActiveFilter(button.dataset.filter));
+});
+
+[els.cardViewButton, els.tableViewButton].filter(Boolean).forEach(button => {
+  button.addEventListener('click', () => setViewMode(button.dataset.view));
+});
+
+els.resultSortSelect?.addEventListener('change', event => {
+  state.sortMode = event.target.value || 'dateDesc';
+  renderList();
 });
 
 ['dragenter', 'dragover'].forEach(eventName => {
