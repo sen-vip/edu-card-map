@@ -17,9 +17,11 @@ const state = {
   loadingTimer: null,
   loadingMessage: '',
   mapReady: false,
-  viewMode: 'card',
+  viewMode: 'table',
   sortMode: 'dateDesc',
   activeRowId: null,
+  autoMapAfterParse: false,
+  isMakingMap: false,
 };
 
 const els = {
@@ -570,8 +572,8 @@ function setFlowStep(step = 'ready', message = '') {
   });
   if (els.flowMessage) {
     els.flowMessage.textContent = message || {
-      ready: '대기 중입니다. 조건을 선택하고 첨부 엑셀 자동 가져오기를 누르면 순서대로 진행합니다.',
-      fetch: '서울 열린교육에서 첨부 엑셀을 찾고 있습니다.',
+      ready: '대기 중입니다. 조건을 선택하면 자료 수집부터 지도 표시까지 자동으로 진행합니다.',
+      fetch: '서울 열린교육에서 공개자료를 찾고 있습니다.',
       parse: '엑셀 내용을 읽어 지도 대상과 확인필요 항목을 정리하고 있습니다.',
       geocode: '사용처 위치를 검색하고 지도에 표시할 준비를 하고 있습니다.',
       done: '지도 표시가 완료되었습니다. 마커를 눌러 장소를 확인하세요.',
@@ -638,7 +640,7 @@ function parseCurrentSheet() {
   state.rows = rows;
   state.places = rows;
   state.filter = 'mapped';
-  setFlowStep('parse', `${rows.length.toLocaleString('ko-KR')}건을 읽었어요. 이제 지도 만들기를 누르면 위치 검색을 시작합니다.`);
+  setFlowStep('parse', `${rows.length.toLocaleString('ko-KR')}건을 읽었어요. 곧바로 위치 검색을 시작합니다.`);
   state.mapReady = false;
   els.makeMapButton.disabled = !rows.length;
   els.downloadCsvButton.disabled = !rows.length;
@@ -654,6 +656,12 @@ function parseCurrentSheet() {
   const warning = errors.length ? ` 일부 시트 제외: ${errors.length}개` : '';
   showToast(`${sheetMessage} 지도화 제외 ${excluded.toLocaleString('ko-KR')}건.${warning}`);
   console.info('[교육청 법카맵] 시트 읽기 결과', { info, errors });
+
+  if (state.autoMapAfterParse) {
+    state.autoMapAfterParse = false;
+    setFlowStep('geocode', '자료를 읽었어요. 이제 사용처 위치를 자동으로 검색합니다.');
+    setTimeout(() => makeMap({ automatic: true }), 120);
+  }
 }
 
 function renderAll() {
@@ -912,9 +920,10 @@ function loadWorkbookFromArrayBuffer(buffer, fileName, autoParse = false) {
   }
   els.sheetRow?.classList.add('hidden');
   if (els.uploadDetails) els.uploadDetails.open = false;
-  setFlowStep('parse', '첨부 엑셀을 불러왔어요. 사용처·금액·제외 항목을 정리합니다.');
+  setFlowStep('parse', '공개자료를 불러왔어요. 사용처·금액·제외 항목을 정리합니다.');
   showToast(`${fileName || '공개자료'} 파일을 불러왔어요.${state.workbook.SheetNames.length > 1 ? ' 여러 시트를 자동으로 합쳐 읽습니다.' : ''}`);
   if (autoParse) {
+    state.autoMapAfterParse = true;
     setTimeout(parseCurrentSheet, 0);
   }
 }
@@ -1054,7 +1063,7 @@ function isStaticGithubPages() {
 function backendUnavailableMessage() {
   return [
     '현재 주소는 GitHub Pages 정적 주소라 자동 수집 백엔드(/api)가 없어요.',
-    '첨부 엑셀 자동 가져오기·게시글 후보 찾기·URL 불러오기는 Vercel 배포 주소에서 실행해주세요.',
+    '공개자료 가져오기·게시글 후보 찾기·URL 불러오기는 Vercel 배포 주소에서 실행해주세요.',
     '이 주소에서는 아래의 엑셀 직접 업로드 기능만 정상 사용 가능합니다.',
   ].join('\n');
 }
@@ -1324,7 +1333,7 @@ async function fetchSiteExcelAuto(latest = false) {
     clearSiteCandidates();
     setSiteActionsVisible(false);
     setFetchBusy(true, button, '자료 수집 중...');
-    setFlowStep('fetch', '서울 열린교육에서 게시글과 첨부 엑셀을 찾고 있습니다.');
+    setFlowStep('fetch', '서울 열린교육에서 게시글과 공개자료를 찾고 있습니다.');
     startLoadingStatus('자료 수집 중');
     const params = siteParams(latest);
     const { response, data } = await fetchJsonWithTimeout(`/api/sen-browser?${params.toString()}`, 65000);
@@ -1332,17 +1341,16 @@ async function fetchSiteExcelAuto(latest = false) {
     if (!response.ok || !data.ok) {
       renderSiteCandidates(data.candidates || [], { listUrl: data.listUrl });
       const logs = Array.isArray(data.logs) && data.logs.length ? `\n\n진단 로그:\n${data.logs.slice(-12).map(line => `- ${line}`).join('\n')}` : '';
-      throw new Error((data.message || '첨부 엑셀 자동 수집에 실패했어요.') + logs);
+      throw new Error((data.message || '공개자료 수집에 실패했어요.') + logs);
     }
     loadWorkbookFromArrayBuffer(base64ToArrayBuffer(data.base64), data.fileName || '업무추진비_공개자료.xlsx', true);
     renderSiteCandidates(data.candidates || [], { listUrl: data.listUrl });
     const logs = Array.isArray(data.logs) && data.logs.length ? `\n진단: ${data.logs.slice(-3).join(' / ')}` : '';
-    setSiteStatus(`첨부 엑셀 자동 수집 성공: ${data.fileName || '공개자료.xlsx'}${data.title ? `\n게시글: ${data.title}` : ''}${logs}\n\n아래의 “지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
-    setFlowStep('parse', '자료 수집이 끝났어요. 엑셀 내용을 지도 대상으로 정리했습니다.');
+    setSiteStatus(`공개자료 수집 성공: ${data.fileName || '공개자료.xlsx'}${data.title ? `\n게시글: ${data.title}` : ''}${logs}\n\n자료를 읽은 뒤 자동으로 지도까지 만듭니다.`, 'success');
+    setFlowStep('parse', '자료 수집이 끝났어요. 엑셀 내용을 지도 대상으로 정리한 뒤 바로 지도 표시를 시작합니다.');
     setSiteActionsVisible(true);
     setSearchPanelCollapsed(true);
-    els.siteActionRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    showToast('첨부 엑셀을 자동으로 가져왔어요. 이제 지도를 만들 수 있어요.');
+    showToast('공개자료를 가져왔어요. 지도를 자동으로 만드는 중이에요.');
   } catch (error) {
     stopLoadingStatus();
     setSiteActionsVisible(false);
@@ -1404,7 +1412,7 @@ async function fetchDirectUrl() {
   try {
     setSiteActionsVisible(false);
     setFetchBusy(true, els.directFetchButton, '불러오는 중...');
-    setFlowStep('fetch', '직접 입력한 URL에서 첨부 엑셀을 불러오고 있습니다.');
+    setFlowStep('fetch', '직접 입력한 URL에서 공개자료를 불러오고 있습니다.');
     startLoadingStatus('URL에서 엑셀 불러오는 중');
     const params = siteParams(false);
     params.set('directUrl', url);
@@ -1417,10 +1425,9 @@ async function fetchDirectUrl() {
       throw new Error((data.message || 'URL에서 엑셀을 불러오지 못했어요.') + detail);
     }
     loadWorkbookFromArrayBuffer(base64ToArrayBuffer(data.base64), data.fileName || '업무추진비_공개자료.xlsx', true);
-    setSiteStatus(`URL 불러오기 성공: ${data.fileName || '첨부파일'}${data.title ? `\n게시글: ${data.title}` : ''}\n\n“지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
-    setFlowStep('parse', 'URL에서 엑셀을 불러왔어요. 지도 대상을 정리했습니다.');
+    setSiteStatus(`URL 불러오기 성공: ${data.fileName || '첨부파일'}${data.title ? `\n게시글: ${data.title}` : ''}\n\n자료를 읽은 뒤 자동으로 지도까지 만듭니다.`, 'success');
+    setFlowStep('parse', 'URL에서 엑셀을 불러왔어요. 지도 대상을 정리한 뒤 바로 지도 표시를 시작합니다.');
     setSiteActionsVisible(true);
-    els.siteActionRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (error) {
     stopLoadingStatus();
     const message = fetchErrorMessage(error, 'URL에서 엑셀을 불러오지 못했어요.');
@@ -1475,7 +1482,8 @@ function searchPlace(service, keyword) {
   });
 }
 
-async function makeMap() {
+async function makeMap(options = {}) {
+  if (state.isMakingMap) return;
   if (!state.rows.length) {
     showToast('먼저 엑셀 자료를 읽어주세요.');
     return;
@@ -1484,10 +1492,12 @@ async function makeMap() {
   const region = els.regionHintInput.value.trim() || '서울';
 
   try {
+    state.isMakingMap = true;
+    document.querySelector('.map-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     els.makeMapButton.disabled = true;
     if (els.makeMapInlineButton) els.makeMapInlineButton.disabled = true;
-    els.makeMapButton.textContent = '장소 검색 준비 중...';
-    if (els.makeMapInlineButton) els.makeMapInlineButton.textContent = '장소 검색 준비 중...';
+    els.makeMapButton.textContent = options.automatic ? '자동 지도 생성 중...' : '장소 검색 준비 중...';
+    if (els.makeMapInlineButton) els.makeMapInlineButton.textContent = options.automatic ? '자동 지도 생성 중...' : '장소 검색 준비 중...';
     setFlowStep('geocode', 'Kakao 지도에서 사용처 위치를 검색할 준비를 하고 있습니다.');
     await loadKakaoMap(key);
     state.mapReady = true;
@@ -1538,15 +1548,15 @@ async function makeMap() {
     if (mapped.length) map.setBounds(bounds);
     setFlowStep('done', `지도 표시 완료: ${mapped.length}곳 표시 · 확인필요 ${state.rows.filter(r => r.status === 'review').length}건`);
     showToast(`지도 검색 완료: ${mapped.length}건 표시, ${state.rows.filter(r => r.status === 'review').length}건 확인필요, ${state.rows.filter(r => r.status === 'excluded').length}건 제외`);
-    document.querySelector('.map-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     showToast(error.message || '지도 만들기 중 오류가 발생했어요.');
   } finally {
+    state.isMakingMap = false;
     els.makeMapButton.disabled = !state.rows.length;
-    els.makeMapButton.textContent = '지도 만들기';
+    els.makeMapButton.textContent = state.mapReady ? '지도 다시 만들기' : '지도 만들기';
     if (els.makeMapInlineButton) {
       els.makeMapInlineButton.disabled = !state.rows.length;
-      els.makeMapInlineButton.textContent = '지도 만들기';
+      els.makeMapInlineButton.textContent = state.mapReady ? '지도 다시 만들기' : '지도 만들기';
     }
   }
 }
@@ -1689,14 +1699,14 @@ function resetApp() {
   els.makeMapButton.disabled = true;
   els.downloadCsvButton.disabled = true;
   els.map.className = 'map-empty';
-  els.map.innerHTML = '<p>자료를 읽은 뒤 “지도 만들기”를 누르면 지도가 표시됩니다.</p>';
+  els.map.innerHTML = '<p>자료를 불러오면 자동으로 위치를 검색해 지도를 표시합니다.</p>';
   state.map = null;
   renderAll();
   renderSelectedPlace(null);
   setFlowStep('ready');
   updateStageVisibility();
   setSiteActionsVisible(false);
-  setSiteStatus(isStaticGithubPages() ? backendUnavailableMessage() : '새 자료를 불러올 준비가 되었어요. 조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.', isStaticGithubPages() ? 'error' : '');
+  setSiteStatus(isStaticGithubPages() ? backendUnavailableMessage() : '새 자료를 불러올 준비가 되었어요. 조건을 선택하면 수집 후 자동으로 지도까지 만듭니다.', isStaticGithubPages() ? 'error' : '');
   clearSiteCandidates();
   showToast('초기화했어요.');
 }

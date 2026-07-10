@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('cache-control', 'no-store');
     res.status(500).json({
       ok: false,
-      message: error.message || '첨부 엑셀 자동 수집에 실패했어요.',
+      message: error.message || '공개자료 수집에 실패했어요.',
       listUrl: board.listUrl,
       candidates: (error.candidates || []).slice(0, 10).map(toCandidate),
       notices: error.notices || [],

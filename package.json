@@ -1,6 +1,6 @@
 {
   "name": "edu-card-map",
-  "version": "3.7.8-map-first-flow",
+  "version": "3.8.1-public-data-label",
   "private": true,
   "description": "교육청 법카맵 - 서울교육 업무추진비 공개자료 지도화",
   "scripts": {

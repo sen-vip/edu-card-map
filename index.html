@@ -14,13 +14,13 @@
       <div class="hero-copy">
         <span class="eyebrow">LC · Public expense map</span>
         <h1>교육청 법카맵</h1>
-        <p>서울 열린교육 업무추진비 공개자료를 자동으로 가져오고, 사용장소·금액·확인필요 항목을 지도와 목록으로 정리합니다.</p>
+        <p>서울 열린교육 업무추진비 공개자료를 불러오면 바로 지도에 표시하고, 필요한 항목만 표로 검토합니다.</p>
       </div>
       <div class="hero-panel">
         <strong>오늘 할 수 있는 것</strong>
         <ul>
-          <li>첨부 엑셀 자동 가져오기</li>
-          <li>직접 업로드로 지도 만들기</li>
+          <li>공개자료 가져오기</li>
+          <li>불러오면 자동으로 지도 표시</li>
           <li>경조사비·쇼핑몰·개인지급 제외</li>
           <li>확인필요 항목 따로 보기</li>
         </ul>
@@ -71,10 +71,13 @@
               </div>
               <div id="agencySuggestionList" class="combo-list hidden" role="listbox"></div>
             </label>
+
+            <div class="inline-auto-action">
+              <button id="autoExcelButton" class="primary-button" type="button">공개자료 가져오기</button>
+            </div>
           </div>
 
-          <div class="button-row site-buttons">
-            <button id="autoExcelButton" class="primary-button" type="button">첨부 엑셀 자동 가져오기</button>
+          <div class="button-row site-buttons secondary-site-buttons">
             <button id="stopFetchButton" class="secondary-button danger hidden" type="button">수집 중지</button>
             <button id="fetchSiteButton" class="secondary-button" type="button">게시글 후보만 찾기</button>
             <button id="loadLatestButton" class="secondary-button" type="button">최신자료 찾기</button>
@@ -91,7 +94,7 @@
         </div>
 
         <div id="flowPanel" class="flow-panel">
-          <div id="flowMessage" class="flow-message">대기 중입니다. 조건을 선택하고 첨부 엑셀 자동 가져오기를 누르면 순서대로 진행합니다.</div>
+          <div id="flowMessage" class="flow-message">대기 중입니다. 조건을 선택하고 공개자료 가져오기를 누르면 순서대로 진행합니다.</div>
           <div class="flow-steps" aria-label="진행 단계">
             <span class="flow-step active" data-flow-step="ready">조건 확인</span>
             <span class="flow-step" data-flow-step="fetch">서울교육청 자료 수집</span>
@@ -103,12 +106,12 @@
 
         <details id="siteStatusDetails" class="status-details">
           <summary>자료 가져오기 상세</summary>
-          <pre id="siteStatus" class="status-box">조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.</pre>
+          <pre id="siteStatus" class="status-box">조건을 선택하고 공개자료 가져오기를 눌러주세요.</pre>
           <div id="siteCandidateList" class="candidate-list"></div>
         </details>
 
         <div id="siteActionRow" class="site-action-row hidden">
-          <button id="makeMapInlineButton" class="primary-button" type="button">지도 만들기</button>
+          <button id="makeMapInlineButton" class="primary-button" type="button">지도 다시 만들기</button>
           <button id="retryFetchButton" class="secondary-button" type="button">다시 시도</button>
           <button id="reopenSiteButton" class="secondary-button" type="button">조회조건 다시 열기</button>
         </div>
@@ -143,7 +146,7 @@
             <input id="kakaoKeyInput" type="password" placeholder="Kakao JavaScript 키" />
             <button id="saveKeyButton" class="secondary-button" type="button">키 저장</button>
           </div>
-          <p class="hint">이 설정은 접어두어도 지도 만들기가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
+          <p class="hint">이 설정은 접어두어도 자동 지도 표시가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
         </details>
 
         <div id="statsGrid" class="stats-grid">
@@ -155,7 +158,7 @@
         </div>
 
         <div id="mapLayout" class="map-layout">
-          <div id="map" class="map-empty"><p>자료를 불러온 뒤 “지도 만들기”를 누르면 지도가 표시됩니다.</p></div>
+          <div id="map" class="map-empty"><p>자료를 불러오면 자동으로 위치를 검색해 지도를 표시합니다.</p></div>
           <aside id="selectedPlacePanel" class="selected-place-panel" aria-live="polite">
             <span class="panel-kicker">선택 장소</span>
             <strong>지도 마커를 누르면 이곳에 상세가 표시됩니다.</strong>
@@ -193,14 +196,10 @@
         <div class="card-head result-head">
           <div>
             <span class="step-badge">Result</span>
-            <h2>장소별 검토 목록</h2>
-            <p class="section-subtitle">지도에서 확인한 뒤 필요한 항목만 보조로 검토합니다.</p>
+            <h2>장소별 검토 표</h2>
+            <p class="section-subtitle">지도 확인을 보조하는 표입니다. 기본은 지도표시 항목부터 보여줍니다.</p>
           </div>
           <div class="result-head-actions">
-            <div class="view-toggle" aria-label="결과 보기 방식">
-              <button id="cardViewButton" class="view-button active" type="button" data-view="card">카드</button>
-              <button id="tableViewButton" class="view-button" type="button" data-view="table">표</button>
-            </div>
             <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
           </div>
         </div>

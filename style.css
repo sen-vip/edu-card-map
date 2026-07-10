@@ -70,14 +70,17 @@ button { cursor: pointer; }
 .primary-button:disabled, .secondary-button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .secondary-button { background: #f3f6fb; color: #24324b; border: 1px solid #e7edf6; }
 .secondary-button.danger { color: var(--danger); background: var(--danger-bg); }
-.form-grid { display: grid; grid-template-columns: 180px 260px 1fr; gap: 14px; }
+.form-grid { display: grid; grid-template-columns: 180px 280px minmax(260px, 420px) 220px; gap: 14px; align-items: end; }
 .form-grid.slim { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
 label span { display: block; font-size: 13px; color: var(--muted); font-weight: 800; margin-bottom: 7px; }
 input, select { width: 100%; min-height: 44px; border: 1px solid #dbe3ee; border-radius: 14px; padding: 0 13px; background: white; color: var(--ink); outline: none; }
 input:focus, select:focus { border-color: #9db4ff; box-shadow: 0 0 0 4px rgba(49,94,251,.09); }
 .button-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .button-row.compact { justify-content: flex-end; }
-.site-buttons { margin-top: 16px; }
+.site-buttons { margin-top: 12px; }
+.inline-auto-action { align-self: end; }
+.inline-auto-action .primary-button { width: 100%; min-height: 44px; white-space: nowrap; }
+.secondary-site-buttons { justify-content: flex-start; }
 .combo-wrap { position: relative; }
 .combo-line { display: flex; gap: 8px; }
 .combo-line input { flex: 1; }
@@ -96,7 +99,7 @@ summary { font-weight: 900; color: #344054; cursor: pointer; }
 .candidate-grid { display: grid; gap: 10px; }
 .candidate-card { padding: 14px; border-radius: 16px; background: #f8fafc; border: 1px solid var(--line); }
 .candidate-card strong { display: block; margin-bottom: 4px; }
-.site-action-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.site-action-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
 .drop-zone { min-height: 190px; border: 2px dashed #cbd5e1; border-radius: 22px; background: #f8fafc; display: grid; place-items: center; text-align: center; padding: 22px; gap: 8px; }
 .drop-zone.dragover { border-color: var(--primary); background: #eef4ff; }
 .drop-zone p { margin: 0; color: var(--muted); }
@@ -394,6 +397,19 @@ summary { font-weight: 900; color: #344054; cursor: pointer; }
   .map-layout { min-height: 420px; }
   .upload-card .drop-zone { flex-direction: column; text-align: center; }
 }
-.site-card.no-agency .form-grid { grid-template-columns: 180px 280px; max-width: 520px; }
-.site-card.no-agency .site-buttons { margin-top: 14px; }
+.site-card.no-agency .form-grid { grid-template-columns: 180px 280px 220px; max-width: 720px; }
+.site-card.no-agency .site-buttons { margin-top: 12px; }
+@media (max-width: 1040px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inline-auto-action { grid-column: 1 / -1; } }
 @media (max-width: 860px) { .site-card.no-agency .form-grid { grid-template-columns: 1fr; max-width: none; } }
+
+/* v3.7.9: 지도 중심 흐름에서는 결과를 표로 먼저 보여줍니다. */
+.result-card .result-head-actions { margin-left: auto; }
+.result-list.table-mode { border-radius: 22px; overflow: hidden; }
+.result-table td:nth-child(2) strong { display: block; margin-bottom: 4px; }
+.result-table td:nth-child(5) { color: #344054; }
+
+/* v3.8.0: 하위항목은 적정 폭으로 줄이고, 자동 가져오기 버튼을 조건 행 오른쪽에 배치 */
+@media (max-width: 860px) {
+  .form-grid, .form-grid.slim { grid-template-columns: 1fr; }
+  .inline-auto-action { grid-column: auto; }
+}
