@@ -108,6 +108,8 @@ const SOURCE_LABELS = {
   org: '본청·교육지원청·직속기관',
 };
 
+const AGENCY_GROUP_ORDER = ['본청', '교육지원청', '직속기관', '도서관·평생학습관', '본청 부서'];
+
 const AGENCY_OPTIONS = [
   { name: '본청', group: '본청' },
   { name: '서울특별시교육청', group: '본청' },
@@ -764,7 +766,7 @@ function renderList() {
   els.resultList.querySelectorAll('[data-row-id]').forEach(card => {
     card.addEventListener('click', event => {
       if (event.target.closest('[data-action]')) return;
-      focusRowOnMap(card.dataset.rowId);
+      focusRowOnMap(card.dataset.rowId, { scrollToMap: true });
     });
   });
 
@@ -852,7 +854,7 @@ function handleResultAction(action, rowId) {
   if (!row) return;
 
   if (action === 'map') {
-    focusRowOnMap(rowId);
+    focusRowOnMap(rowId, { scrollToMap: true });
     return;
   }
 
@@ -1177,10 +1179,23 @@ function hideSearchPanel() {
   els.reopenSiteButton?.classList.remove('hidden');
 }
 
+function orderedAgencyOptions(options) {
+  return options
+    .map((item, index) => ({ ...item, originalIndex: index }))
+    .sort((a, b) => {
+      const ag = AGENCY_GROUP_ORDER.indexOf(a.group);
+      const bg = AGENCY_GROUP_ORDER.indexOf(b.group);
+      const groupA = ag === -1 ? 99 : ag;
+      const groupB = bg === -1 ? 99 : bg;
+      return groupA - groupB || a.originalIndex - b.originalIndex;
+    })
+    .map(({ originalIndex, ...item }) => item);
+}
+
 function visibleAgencyOptions(query = '', limit = 12) {
   const q = normalize(query).toLowerCase();
   const source = els.siteSourceSelect?.value || 'org';
-  let options = source === 'org' ? AGENCY_OPTIONS : [];
+  let options = source === 'org' ? orderedAgencyOptions(AGENCY_OPTIONS) : [];
   if (!q) return options.slice(0, limit);
   return options
     .map(item => {
@@ -1205,7 +1220,8 @@ function renderAgencySuggestions(openAll = false) {
     els.siteAgencyInput.setAttribute('aria-expanded', 'false');
     return;
   }
-  const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? 120 : 14);
+  const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? AGENCY_OPTIONS.length : 16);
+  els.agencySuggestionList.classList.toggle('is-open-all', Boolean(openAll));
   if (!options.length) {
     els.agencySuggestionList.innerHTML = '<div class="combo-option combo-empty"><strong>직접 입력 가능</strong></div>';
   } else {
@@ -1606,9 +1622,21 @@ function openOverlayForRow(row, marker) {
   renderSelectedPlace(row);
 }
 
-function focusRowOnMap(rowId) {
+function scrollMapIntoView() {
+  document.querySelector('.map-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (state.map && window.kakao?.maps?.event) {
+    setTimeout(() => kakao.maps.event.trigger(state.map, 'resize'), 260);
+  }
+}
+
+function focusRowOnMap(rowId, options = {}) {
+  const row = state.rows.find(entry => entry.id === rowId);
   const item = state.markers.find(entry => entry.row?.id === rowId);
-  if (!item || !state.map) return;
+  if (options.scrollToMap) scrollMapIntoView();
+  if (!item || !state.map) {
+    if (row) renderSelectedPlace(row);
+    return;
+  }
   state.map.panTo(item.marker.getPosition());
   openOverlayForRow(item.row, item.marker);
 }
@@ -1639,6 +1667,9 @@ function setActiveFilter(filter) {
   state.filter = filter;
   document.querySelectorAll('.tab-button').forEach(button => {
     button.classList.toggle('active', button.dataset.filter === filter);
+  });
+  document.querySelectorAll('[data-summary-filter]').forEach(card => {
+    card.classList.toggle('active', card.dataset.summaryFilter === filter);
   });
   renderList();
   renderMapMarkers();
@@ -1826,6 +1857,10 @@ document.addEventListener('click', event => {
 
 document.querySelectorAll('.tab-button').forEach(button => {
   button.addEventListener('click', () => setActiveFilter(button.dataset.filter));
+});
+
+document.querySelectorAll('[data-summary-filter]').forEach(card => {
+  card.addEventListener('click', () => setActiveFilter(card.dataset.summaryFilter));
 });
 
 [els.cardViewButton, els.tableViewButton].filter(Boolean).forEach(button => {

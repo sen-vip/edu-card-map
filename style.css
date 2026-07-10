@@ -413,3 +413,65 @@ summary { font-weight: 900; color: #344054; cursor: pointer; }
   .form-grid, .form-grid.slim { grid-template-columns: 1fr; }
   .inline-auto-action { grid-column: auto; }
 }
+
+/* v3.8.2: 결과 요약 카드와 표/콤보박스 사용성 보완 */
+.summary-card {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.summary-card:hover {
+  transform: translateY(-1px);
+  border-color: #d0dcf0;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, .06);
+}
+.summary-card.active {
+  border-color: rgba(49, 94, 251, .5);
+  box-shadow: 0 0 0 4px rgba(49, 94, 251, .08);
+  background: #ffffff;
+}
+.summary-card.amount.active {
+  border-color: rgba(22, 163, 74, .45);
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .08);
+}
+.status-badge {
+  white-space: nowrap;
+  word-break: keep-all;
+  line-height: 1;
+}
+.result-table th:first-child,
+.result-table td:first-child {
+  width: 94px;
+  min-width: 94px;
+}
+.result-table tbody tr {
+  cursor: pointer;
+}
+.result-table tbody tr:hover {
+  background: #f7faff;
+}
+.result-table .status-badge {
+  min-width: 68px;
+  justify-content: center;
+}
+.combo-list {
+  z-index: 80;
+}
+.combo-list.is-open-all {
+  max-height: min(460px, calc(100vh - 220px));
+}
+.combo-group-label {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(8px);
+}
+@media (max-width: 860px) {
+  .result-table th:first-child,
+  .result-table td:first-child {
+    width: 88px;
+    min-width: 88px;
+  }
+}
