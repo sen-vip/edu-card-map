@@ -32,7 +32,7 @@
         <div class="card-head">
           <div>
             <span class="step-badge">Step 1</span>
-            <h2>서울 열린교육 게시판에서 가져오기</h2>
+            <h2>자료 가져오기</h2>
           </div>
           <div class="head-actions">
             <button id="collapseSiteButton" class="icon-button" type="button" title="조건 접기/펼치기">⌃</button>
@@ -90,49 +90,38 @@
           </details>
         </div>
 
-        <pre id="siteStatus" class="status-box">조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.</pre>
-        <div id="siteCandidateList" class="candidate-list"></div>
+        <div id="flowPanel" class="flow-panel">
+          <div id="flowMessage" class="flow-message">대기 중입니다. 조건을 선택하고 첨부 엑셀 자동 가져오기를 누르면 순서대로 진행합니다.</div>
+          <div class="flow-steps" aria-label="진행 단계">
+            <span class="flow-step active" data-flow-step="ready">조건 확인</span>
+            <span class="flow-step" data-flow-step="fetch">서울교육청 자료 수집</span>
+            <span class="flow-step" data-flow-step="parse">지도 대상 정리</span>
+            <span class="flow-step" data-flow-step="geocode">사용처 위치 검색</span>
+            <span class="flow-step" data-flow-step="done">지도 표시 완료</span>
+          </div>
+        </div>
+
+        <details id="siteStatusDetails" class="status-details">
+          <summary>자료 가져오기 상세</summary>
+          <pre id="siteStatus" class="status-box">조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.</pre>
+          <div id="siteCandidateList" class="candidate-list"></div>
+        </details>
 
         <div id="siteActionRow" class="site-action-row hidden">
-          <button id="makeMapInlineButton" class="primary-button" type="button">이 자료로 지도 만들기</button>
+          <button id="makeMapInlineButton" class="primary-button" type="button">지도 만들기</button>
           <button id="retryFetchButton" class="secondary-button" type="button">다시 시도</button>
           <button id="reopenSiteButton" class="secondary-button" type="button">조회조건 다시 열기</button>
         </div>
-      </section>
-
-      <section id="upload-card" class="card upload-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Step 1-B</span>
-            <h2>엑셀 직접 업로드</h2>
-          </div>
-          <span class="subtle-pill">.xlsx · .xls · .csv</span>
-        </div>
-
-        <details id="uploadDetails" open>
-          <summary>자동 수집이 막힐 때만 펼쳐서 사용</summary>
-          <div id="dropZone" class="drop-zone">
-            <div class="upload-icon">↥</div>
-            <strong>엑셀을 직접 올려 지도화하기</strong>
-            <p>열린교육에서 내려받은 업무추진비 엑셀을 그대로 올리면 됩니다.</p>
-            <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
-            <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
-          </div>
-          <div id="sheetRow" class="sheet-row hidden">
-            <label>시트 선택 <select id="sheetSelect"></select></label>
-          </div>
-          <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
-        </details>
       </section>
 
       <section class="card map-card">
         <div class="card-head">
           <div>
             <span class="step-badge">Step 2</span>
-            <h2>지도에 표시하기</h2>
+            <h2>업무추진비 지도</h2>
           </div>
           <div class="button-row compact">
-            <button id="makeMapButton" class="primary-button" type="button" disabled>이 자료로 지도 만들기</button>
+            <button id="makeMapButton" class="primary-button" type="button" disabled>지도 만들기</button>
             <button id="clearButton" class="secondary-button" type="button">초기화</button>
           </div>
         </div>
@@ -166,16 +155,46 @@
         </div>
 
         <div id="mapLayout" class="map-layout">
-          <div id="map" class="map-empty"><p>자료를 불러온 뒤 “이 자료로 지도 만들기”를 누르면 지도가 표시됩니다.</p></div>
+          <div id="map" class="map-empty"><p>자료를 불러온 뒤 “지도 만들기”를 누르면 지도가 표시됩니다.</p></div>
+          <aside id="selectedPlacePanel" class="selected-place-panel" aria-live="polite">
+            <span class="panel-kicker">선택 장소</span>
+            <strong>지도 마커를 누르면 이곳에 상세가 표시됩니다.</strong>
+            <p>아래 목록으로 이동하지 않고 지도 안에서 바로 확인할 수 있어요.</p>
+          </aside>
         </div>
+      </section>
+
+      <section id="upload-card" class="card upload-card">
+        <div class="card-head">
+          <div>
+            <span class="step-badge">Step 1-B</span>
+            <h2>직접 업로드</h2>
+          </div>
+          <span class="subtle-pill">.xlsx · .xls · .csv</span>
+        </div>
+
+        <details id="uploadDetails">
+          <summary>자동 수집이 막힐 때만 직접 엑셀 업로드</summary>
+          <div id="dropZone" class="drop-zone">
+            <div class="upload-icon">↥</div>
+            <strong>엑셀 직접 업로드</strong>
+            <p>자동수집이 막힐 때만 사용하세요.</p>
+            <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
+            <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
+          </div>
+          <div id="sheetRow" class="sheet-row hidden">
+            <label>시트 선택 <select id="sheetSelect"></select></label>
+          </div>
+          <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
+        </details>
       </section>
 
       <section class="card result-card">
         <div class="card-head result-head">
           <div>
             <span class="step-badge">Result</span>
-            <h2>추출 결과</h2>
-            <p class="section-subtitle">상호명·금액·상태를 먼저 보고, 확인이 필요한 항목만 빠르게 골라낼 수 있어요.</p>
+            <h2>장소별 검토 목록</h2>
+            <p class="section-subtitle">지도에서 확인한 뒤 필요한 항목만 보조로 검토합니다.</p>
           </div>
           <div class="result-head-actions">
             <div class="view-toggle" aria-label="결과 보기 방식">

@@ -19,6 +19,7 @@ const state = {
   mapReady: false,
   viewMode: 'card',
   sortMode: 'dateDesc',
+  activeRowId: null,
 };
 
 const els = {
@@ -86,6 +87,11 @@ const els = {
   resultSortSelect: document.getElementById('resultSortSelect'),
   cardViewButton: document.getElementById('cardViewButton'),
   tableViewButton: document.getElementById('tableViewButton'),
+  agencyComboWrap: document.getElementById('agencyComboWrap'),
+  flowPanel: document.getElementById('flowPanel'),
+  flowMessage: document.getElementById('flowMessage'),
+  siteStatusDetails: document.getElementById('siteStatusDetails'),
+  selectedPlacePanel: document.getElementById('selectedPlacePanel'),
 };
 
 const BOARD_LIST_URLS = {
@@ -547,9 +553,61 @@ function parseRowsFromSheet(sheetName, idPrefix = '') {
 function updateStageVisibility() {
   const hasRows = state.rows.length > 0;
   const showResults = hasRows && state.mapReady;
-  els.configPanel?.classList.toggle('stage-hidden', !hasRows);
+  // 자료 조건 영역은 항상 보이게 두고, 지도/요약은 지도 생성 전까지 안내 상태로 유지합니다.
   els.statsGrid?.classList.toggle('stage-hidden', !showResults);
   els.mapLayout?.classList.toggle('stage-hidden', !showResults);
+}
+
+const FLOW_ORDER = ['ready', 'fetch', 'parse', 'geocode', 'done'];
+
+function setFlowStep(step = 'ready', message = '') {
+  const safeStep = FLOW_ORDER.includes(step) ? step : 'ready';
+  const currentIndex = FLOW_ORDER.indexOf(safeStep);
+  document.querySelectorAll('[data-flow-step]').forEach(item => {
+    const itemIndex = FLOW_ORDER.indexOf(item.dataset.flowStep);
+    item.classList.toggle('done', itemIndex >= 0 && itemIndex < currentIndex);
+    item.classList.toggle('active', item.dataset.flowStep === safeStep);
+  });
+  if (els.flowMessage) {
+    els.flowMessage.textContent = message || {
+      ready: '대기 중입니다. 조건을 선택하고 첨부 엑셀 자동 가져오기를 누르면 순서대로 진행합니다.',
+      fetch: '서울 열린교육에서 첨부 엑셀을 찾고 있습니다.',
+      parse: '엑셀 내용을 읽어 지도 대상과 확인필요 항목을 정리하고 있습니다.',
+      geocode: '사용처 위치를 검색하고 지도에 표시할 준비를 하고 있습니다.',
+      done: '지도 표시가 완료되었습니다. 마커를 눌러 장소를 확인하세요.',
+    }[safeStep];
+  }
+}
+
+function renderSelectedPlace(row = null) {
+  if (!els.selectedPlacePanel) return;
+  if (!row) {
+    els.selectedPlacePanel.innerHTML = `
+      <span class="panel-kicker">선택 장소</span>
+      <strong>지도 마커를 누르면 이곳에 상세가 표시됩니다.</strong>
+      <p>아래 목록으로 이동하지 않고 지도 안에서 바로 확인할 수 있어요.</p>
+    `;
+    return;
+  }
+  const title = row.matchedName || row.place || '사용장소';
+  const address = row.address || row.reason || '';
+  const dateText = row.date || '';
+  const amountText = formatWon(row.amount || 0);
+  els.selectedPlacePanel.innerHTML = `
+    <span class="panel-kicker">선택 장소</span>
+    <strong>${escapeHtml(title)}</strong>
+    ${address ? `<p>${escapeHtml(address)}</p>` : ''}
+    <div class="selected-meta">
+      ${dateText ? `<span>${escapeHtml(dateText)}</span>` : ''}
+      <span>${escapeHtml(amountText)}</span>
+    </div>
+    ${row.purpose ? `<p class="selected-purpose">${escapeHtml(compactText(row.purpose, 90))}</p>` : ''}
+    <div class="selected-actions">
+      ${address && row.lat && row.lng ? `<a class="mini-button" href="https://map.kakao.com/link/map/${encodeURIComponent(title)},${row.lat},${row.lng}" target="_blank" rel="noopener">카카오맵 열기</a>` : ''}
+      ${address ? `<button class="mini-button" type="button" data-selected-copy>주소 복사</button>` : ''}
+    </div>
+  `;
+  els.selectedPlacePanel.querySelector('[data-selected-copy]')?.addEventListener('click', () => copyText(address));
 }
 
 function parseCurrentSheet() {
@@ -580,6 +638,7 @@ function parseCurrentSheet() {
   state.rows = rows;
   state.places = rows;
   state.filter = 'mapped';
+  setFlowStep('parse', `${rows.length.toLocaleString('ko-KR')}건을 읽었어요. 이제 지도 만들기를 누르면 위치 검색을 시작합니다.`);
   state.mapReady = false;
   els.makeMapButton.disabled = !rows.length;
   els.downloadCsvButton.disabled = !rows.length;
@@ -786,7 +845,6 @@ function handleResultAction(action, rowId) {
 
   if (action === 'map') {
     focusRowOnMap(rowId);
-    document.querySelector('.map-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
 
@@ -854,6 +912,7 @@ function loadWorkbookFromArrayBuffer(buffer, fileName, autoParse = false) {
   }
   els.sheetRow?.classList.add('hidden');
   if (els.uploadDetails) els.uploadDetails.open = false;
+  setFlowStep('parse', '첨부 엑셀을 불러왔어요. 사용처·금액·제외 항목을 정리합니다.');
   showToast(`${fileName || '공개자료'} 파일을 불러왔어요.${state.workbook.SheetNames.length > 1 ? ' 여러 시트를 자동으로 합쳐 읽습니다.' : ''}`);
   if (autoParse) {
     setTimeout(parseCurrentSheet, 0);
@@ -876,7 +935,8 @@ function base64ToArrayBuffer(base64) {
 function setSiteStatus(message, type = '') {
   if (!els.siteStatus) return;
   els.siteStatus.textContent = message;
-  els.siteStatus.className = `site-status ${type}`.trim();
+  els.siteStatus.className = `status-box site-status ${type}`.trim();
+  if (els.siteStatusDetails && type === 'error') els.siteStatusDetails.open = true;
 }
 
 function setSiteActionsVisible(visible) {
@@ -1051,10 +1111,25 @@ function periodText() {
   };
 }
 
+function isAgencyInputVisible() {
+  return (els.siteSourceSelect?.value || 'org') === 'org';
+}
+
+function syncAgencyControl() {
+  const visible = isAgencyInputVisible();
+  els.siteCard?.classList.toggle('no-agency', !visible);
+  els.agencyComboWrap?.classList.toggle('hidden', !visible);
+  if (els.siteAgencyInput) {
+    els.siteAgencyInput.disabled = !visible;
+    els.siteAgencyInput.placeholder = visible ? '예: 동작관악교육지원청, 총무과' : '하위항목이 필요 없는 게시판입니다';
+  }
+  if (!visible) closeAgencySuggestions();
+}
+
 function getQuerySummaryText() {
   const source = SOURCE_LABELS[els.siteSourceSelect?.value || 'org'] || '업무추진비';
   const period = periodText();
-  const agency = els.siteAgencyInput?.value?.trim() || '기관 전체';
+  const agency = isAgencyInputVisible() ? (els.siteAgencyInput?.value?.trim() || '기관 전체') : '';
   return [source, period.label, agency].filter(Boolean).join(' · ');
 }
 
@@ -1067,6 +1142,7 @@ function updatePublicSiteLinks() {
 }
 
 function updateQuerySummary() {
+  syncAgencyControl();
   if (!els.querySummaryText) return;
   els.querySummaryText.textContent = getQuerySummaryText();
   updatePublicSiteLinks();
@@ -1122,7 +1198,7 @@ function renderAgencySuggestions(openAll = false) {
   }
   const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? 120 : 14);
   if (!options.length) {
-    els.agencySuggestionList.innerHTML = '<div class="combo-option"><strong>직접 입력 가능</strong><span>목록에 없어도 그대로 검색할 수 있어요.</span></div>';
+    els.agencySuggestionList.innerHTML = '<div class="combo-option combo-empty"><strong>직접 입력 가능</strong></div>';
   } else {
     let lastGroup = '';
     els.agencySuggestionList.innerHTML = options.map((item, index) => {
@@ -1131,7 +1207,6 @@ function renderAgencySuggestions(openAll = false) {
       return `${groupHead}
         <button class="combo-option" type="button" role="option" data-agency="${escapeHtml(item.name)}" data-index="${index}">
           <strong>${escapeHtml(item.name)}</strong>
-          <span>${escapeHtml(item.group)}</span>
         </button>`;
     }).join('');
   }
@@ -1229,7 +1304,7 @@ function renderSiteCandidates(candidates = [], options = {}) {
 function siteParams(latest = false) {
   const source = els.siteSourceSelect?.value || 'chief';
   const { year, month } = syncPeriodToHidden();
-  const agency = els.siteAgencyInput?.value?.trim() || '';
+  const agency = isAgencyInputVisible() ? (els.siteAgencyInput?.value?.trim() || '') : '';
   const fallback = splitMonthKey(maxSelectableMonthKey());
   const params = new URLSearchParams({
     source,
@@ -1249,6 +1324,7 @@ async function fetchSiteExcelAuto(latest = false) {
     clearSiteCandidates();
     setSiteActionsVisible(false);
     setFetchBusy(true, button, '자료 수집 중...');
+    setFlowStep('fetch', '서울 열린교육에서 게시글과 첨부 엑셀을 찾고 있습니다.');
     startLoadingStatus('자료 수집 중');
     const params = siteParams(latest);
     const { response, data } = await fetchJsonWithTimeout(`/api/sen-browser?${params.toString()}`, 65000);
@@ -1261,16 +1337,18 @@ async function fetchSiteExcelAuto(latest = false) {
     loadWorkbookFromArrayBuffer(base64ToArrayBuffer(data.base64), data.fileName || '업무추진비_공개자료.xlsx', true);
     renderSiteCandidates(data.candidates || [], { listUrl: data.listUrl });
     const logs = Array.isArray(data.logs) && data.logs.length ? `\n진단: ${data.logs.slice(-3).join(' / ')}` : '';
-    setSiteStatus(`첨부 엑셀 자동 수집 성공: ${data.fileName || '공개자료.xlsx'}${data.title ? `\n게시글: ${data.title}` : ''}${logs}\n\n아래의 “이 자료로 지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
+    setSiteStatus(`첨부 엑셀 자동 수집 성공: ${data.fileName || '공개자료.xlsx'}${data.title ? `\n게시글: ${data.title}` : ''}${logs}\n\n아래의 “지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
+    setFlowStep('parse', '자료 수집이 끝났어요. 엑셀 내용을 지도 대상으로 정리했습니다.');
     setSiteActionsVisible(true);
     setSearchPanelCollapsed(true);
     els.siteActionRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    showToast('첨부 엑셀을 자동으로 가져왔어요. 이제 이 자료로 지도를 만들 수 있어요.');
+    showToast('첨부 엑셀을 자동으로 가져왔어요. 이제 지도를 만들 수 있어요.');
   } catch (error) {
     stopLoadingStatus();
     setSiteActionsVisible(false);
     const message = fetchErrorMessage(error, '자동 수집이 막혔어요.');
     setSiteStatus(`${message}\n\n사용내역이 없는 달이거나 아직 공개 전일 수 있어요. 공개사이트에서 확인하거나 조건을 바꿔 다시 시도할 수 있습니다.`, 'error');
+    setFlowStep('ready', '자동 수집이 막혔어요. 조건을 바꾸거나 직접 업로드를 사용할 수 있습니다.');
     showToast(message);
   } finally {
     setFetchBusy(false);
@@ -1285,6 +1363,7 @@ async function fetchSiteExcel(latest = false) {
     clearSiteCandidates();
     setSiteActionsVisible(false);
     setFetchBusy(true, button, '후보 확인 중...');
+    setFlowStep('fetch', '서울 열린교육 게시글 후보를 확인하고 있습니다.');
     startLoadingStatus('게시글 후보 확인 중');
     const { response, data } = await fetchJsonWithTimeout(`/api/sen-find?${siteParams(latest).toString()}`, 35000);
     stopLoadingStatus();
@@ -1302,12 +1381,14 @@ async function fetchSiteExcel(latest = false) {
       '자동 첨부 가져오기가 막히면 열린교육 게시판에서 해당 엑셀을 직접 내려받아 업로드해주세요.',
     ].filter(Boolean).join('\n'), candidates.length ? 'success' : 'error');
 
+    setFlowStep(candidates.length ? 'fetch' : 'ready', candidates.length ? '게시글 후보를 찾았어요. 자동 가져오기 또는 직접 다운로드로 이어갈 수 있습니다.' : '조건에 맞는 후보가 없어요. 조건을 바꿔 다시 시도해보세요.');
     if (candidates.length) showToast('게시글 후보를 찾았어요.');
     else showToast('조건에 맞는 게시글 후보가 없어요. 기관명을 비우고 다시 시도해보세요.');
   } catch (error) {
     stopLoadingStatus();
     const message = fetchErrorMessage(error, '게시글 후보를 찾지 못했어요.');
     setSiteStatus(`${message}\n\n사용내역이 없는 달이거나 아직 공개 전일 수 있어요. 공개사이트에서 확인하거나 엑셀을 직접 내려받아 아래 업로드 영역에 넣어주세요.`, 'error');
+    setFlowStep('ready', '게시글 후보 찾기가 막혔어요. 조건을 바꿔 다시 시도할 수 있습니다.');
   } finally {
     setFetchBusy(false);
   }
@@ -1323,6 +1404,7 @@ async function fetchDirectUrl() {
   try {
     setSiteActionsVisible(false);
     setFetchBusy(true, els.directFetchButton, '불러오는 중...');
+    setFlowStep('fetch', '직접 입력한 URL에서 첨부 엑셀을 불러오고 있습니다.');
     startLoadingStatus('URL에서 엑셀 불러오는 중');
     const params = siteParams(false);
     params.set('directUrl', url);
@@ -1335,13 +1417,15 @@ async function fetchDirectUrl() {
       throw new Error((data.message || 'URL에서 엑셀을 불러오지 못했어요.') + detail);
     }
     loadWorkbookFromArrayBuffer(base64ToArrayBuffer(data.base64), data.fileName || '업무추진비_공개자료.xlsx', true);
-    setSiteStatus(`URL 불러오기 성공: ${data.fileName || '첨부파일'}${data.title ? `\n게시글: ${data.title}` : ''}\n\n“이 자료로 지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
+    setSiteStatus(`URL 불러오기 성공: ${data.fileName || '첨부파일'}${data.title ? `\n게시글: ${data.title}` : ''}\n\n“지도 만들기”를 누르면 지도 표시 장소만 먼저 보여줍니다.`, 'success');
+    setFlowStep('parse', 'URL에서 엑셀을 불러왔어요. 지도 대상을 정리했습니다.');
     setSiteActionsVisible(true);
     els.siteActionRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (error) {
     stopLoadingStatus();
     const message = fetchErrorMessage(error, 'URL에서 엑셀을 불러오지 못했어요.');
     setSiteStatus(`${message}\n\n일반 게시글 주소가 아니라 실제 첨부파일 다운로드 주소가 필요할 수 있어요. 안 되면 파일을 직접 내려받아 업로드해주세요.`, 'error');
+    setFlowStep('ready', 'URL 불러오기가 막혔어요. 직접 업로드를 사용할 수 있습니다.');
   } finally {
     setFetchBusy(false);
   }
@@ -1404,6 +1488,7 @@ async function makeMap() {
     if (els.makeMapInlineButton) els.makeMapInlineButton.disabled = true;
     els.makeMapButton.textContent = '장소 검색 준비 중...';
     if (els.makeMapInlineButton) els.makeMapInlineButton.textContent = '장소 검색 준비 중...';
+    setFlowStep('geocode', 'Kakao 지도에서 사용처 위치를 검색할 준비를 하고 있습니다.');
     await loadKakaoMap(key);
     state.mapReady = true;
     updateStageVisibility();
@@ -1419,6 +1504,7 @@ async function makeMap() {
       const done = targets.indexOf(row) + 1;
       if (row.skipGeocode) continue;
       const progressText = `장소 검색 중 ${Math.max(done, 1)}/${targets.length}...`;
+      setFlowStep('geocode', `사용처 위치 검색 중 ${Math.max(done, 1)}/${targets.length}`);
       els.makeMapButton.textContent = progressText;
       if (els.makeMapInlineButton) els.makeMapInlineButton.textContent = progressText;
       if (!row.place) {
@@ -1450,16 +1536,17 @@ async function makeMap() {
     const mapped = state.rows.filter(row => row.status === 'mapped' && row.lat && row.lng);
     setActiveFilter('mapped');
     if (mapped.length) map.setBounds(bounds);
+    setFlowStep('done', `지도 표시 완료: ${mapped.length}곳 표시 · 확인필요 ${state.rows.filter(r => r.status === 'review').length}건`);
     showToast(`지도 검색 완료: ${mapped.length}건 표시, ${state.rows.filter(r => r.status === 'review').length}건 확인필요, ${state.rows.filter(r => r.status === 'excluded').length}건 제외`);
-    document.querySelector('.map-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('.map-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     showToast(error.message || '지도 만들기 중 오류가 발생했어요.');
   } finally {
     els.makeMapButton.disabled = !state.rows.length;
-    els.makeMapButton.textContent = '이 자료로 지도 만들기';
+    els.makeMapButton.textContent = '지도 만들기';
     if (els.makeMapInlineButton) {
       els.makeMapInlineButton.disabled = !state.rows.length;
-      els.makeMapInlineButton.textContent = '이 자료로 지도 만들기';
+      els.makeMapInlineButton.textContent = '지도 만들기';
     }
   }
 }
@@ -1505,7 +1592,8 @@ function openOverlayForRow(row, marker) {
   });
   overlay.setMap(state.map);
   state.activeOverlay = overlay;
-  focusResultCard(row.id);
+  state.activeRowId = row.id;
+  renderSelectedPlace(row);
 }
 
 function focusRowOnMap(rowId) {
@@ -1601,9 +1689,11 @@ function resetApp() {
   els.makeMapButton.disabled = true;
   els.downloadCsvButton.disabled = true;
   els.map.className = 'map-empty';
-  els.map.innerHTML = '<p>엑셀을 읽은 뒤 Kakao 키를 입력하면 지도가 표시됩니다.</p>';
+  els.map.innerHTML = '<p>자료를 읽은 뒤 “지도 만들기”를 누르면 지도가 표시됩니다.</p>';
   state.map = null;
   renderAll();
+  renderSelectedPlace(null);
+  setFlowStep('ready');
   updateStageVisibility();
   setSiteActionsVisible(false);
   setSiteStatus(isStaticGithubPages() ? backendUnavailableMessage() : '새 자료를 불러올 준비가 되었어요. 조건을 선택하고 첨부 엑셀 자동 가져오기를 눌러주세요.', isStaticGithubPages() ? 'error' : '');
@@ -1639,6 +1729,11 @@ if (els.siteYearMonthInput) {
     updateQuerySummary();
   });
 }
+
+els.siteSourceSelect?.addEventListener('change', () => {
+  syncAgencyControl();
+  updateQuerySummary();
+});
 
 if (els.autoExcelButton) {
   els.autoExcelButton.addEventListener('click', () => fetchSiteExcelAuto(false));
@@ -1765,6 +1860,8 @@ window.addEventListener('DOMContentLoaded', () => {
   updateKeyCompactState();
   updateQuerySummary();
   updatePublicSiteLinks();
+  renderSelectedPlace(null);
+  setFlowStep('ready');
   updateStageVisibility();
   if (isStaticGithubPages()) {
     setSiteStatus(backendUnavailableMessage(), 'error');
