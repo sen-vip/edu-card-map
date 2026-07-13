@@ -220,8 +220,9 @@ const shoppingMallKeywords = [
 ];
 
 const familyEventKeywords = [
-  '경조사', '경조금', '축의금', '조의금', '부의금', '근조', '화환', '조화', '혼의',
-  '결혼축하', '장례', '부고', '상가', '문상', '위로금'
+  '경조사', '경조사비', '경조금', '축의금', '조의금', '부의금', '부조금', '부조',
+  '근조', '화환', '조화', '혼의', '조위금', '조문', '결혼축하', '장례', '부고',
+  '상가', '문상', '위로금'
 ];
 
 const personalPaymentKeywords = [
@@ -231,6 +232,103 @@ const personalPaymentKeywords = [
 
 function includesKeyword(text, keywords) {
   return keywords.some(keyword => text.includes(normalize(keyword).toLowerCase()));
+}
+
+
+function extractParentheticalSegments(text) {
+  const source = displayValue(text).replace(/[（]/g, '(').replace(/[）]/g, ')');
+  const segments = [];
+  let depth = 0;
+  let buffer = '';
+  for (const char of source) {
+    if (char === '(') {
+      if (depth > 0) buffer += char;
+      depth += 1;
+      continue;
+    }
+    if (char === ')') {
+      if (depth > 1) buffer += char;
+      depth -= 1;
+      if (depth === 0 && buffer.trim()) {
+        segments.push(buffer.trim());
+        buffer = '';
+      }
+      if (depth < 0) depth = 0;
+      continue;
+    }
+    if (depth > 0) buffer += char;
+  }
+  return segments;
+}
+
+function looksLikeAddressOnly(text) {
+  const value = displayValue(text);
+  if (!value) return false;
+  const compact = normalize(value);
+  return /^(서울|경기|경기도|인천|강원|충북|충청|전북|전라|경북|경상|부산|대구|광주|대전|울산|세종|제주)/.test(compact)
+    || /(시|군|구).*(로|길|동|읍|면|리)\d*/.test(compact);
+}
+
+function cleanBusinessCandidate(value) {
+  let text = displayValue(value)
+    .replace(/[［\[【].*?[］\]】]/g, ' ')
+    .replace(/^(구입처|구매처|사용처|사용장소|집행처|집행장소|업소명|상호명?)\s*[:：-]?\s*/i, '')
+    .replace(/^(인근\s*)?(식당|음식점|카페)\s*[:：-]?\s*/i, '')
+    .replace(/^구입처\s*/i, '')
+    .replace(/^구매처\s*/i, '')
+    .replace(/\b및\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // 엑셀에 자주 섞이는 '구입처 카페명' 같은 앞말을 한 번 더 정리합니다.
+  text = text.replace(/^(구입처|구매처)\s+/i, '').trim();
+  // 법인 표기는 지도 검색에서 방해될 때가 많아 약하게 정리합니다.
+  text = text.replace(/\(주\)|㈜|주식회사/g, '').replace(/\s+/g, ' ').trim();
+  return text;
+}
+
+function splitBusinessCandidates(text) {
+  return displayValue(text)
+    .split(/[,，\/·]|\s+및\s+/)
+    .map(cleanBusinessCandidate)
+    .filter(Boolean);
+}
+
+function derivePlaceSearchInfo(place) {
+  const original = displayValue(place);
+  if (!original) return { searchPlace: '', multiple: false, reason: '' };
+
+  const segments = extractParentheticalSegments(original)
+    .filter(segment => segment && !looksLikeAddressOnly(segment));
+
+  if (segments.length) {
+    const candidates = segments.flatMap(splitBusinessCandidates)
+      .filter(candidate => candidate && !looksLikeAddressOnly(candidate));
+    const unique = [...new Set(candidates.map(cleanBusinessCandidate).filter(Boolean))];
+    if (unique.length > 1) {
+      return {
+        searchPlace: unique[0],
+        multiple: true,
+        reason: `괄호 안에 여러 사용처가 있어 확인이 필요해요: ${unique.slice(0, 3).join(', ')}`,
+      };
+    }
+    if (unique.length === 1) {
+      return {
+        searchPlace: unique[0],
+        multiple: false,
+        reason: original.includes(unique[0]) && original !== unique[0]
+          ? `괄호 안 실제 사용처(${unique[0]})를 우선 검색해요.`
+          : '',
+      };
+    }
+  }
+
+  const cleaned = cleanBusinessCandidate(original);
+  return { searchPlace: cleaned, multiple: false, reason: cleaned !== original ? `정리한 사용처명(${cleaned})으로 검색해요.` : '' };
+}
+
+function looksLikeInternalRoomLabel(place) {
+  const text = normalize(place).toLowerCase();
+  return /(교육장실|회의실|소회의실|중회의실|상황실|사무실|부속실|관내식당|인근식당|인근음식점)/.test(text);
 }
 
 function getExclusionReason(place, method, purpose, target) {
@@ -432,37 +530,63 @@ function classifyInitialRow(place, method, purpose, target) {
   const exclusionReason = getExclusionReason(place, method, purpose, target);
   if (exclusionReason) return { status: 'excluded', reason: exclusionReason, skipGeocode: true };
 
-  if (!placeText) return { status: 'review', reason: '사용장소가 비어 있어요.', skipGeocode: true };
+  const searchInfo = derivePlaceSearchInfo(placeText);
+  if (!placeText) return { status: 'review', reason: '사용장소가 비어 있어요.', skipGeocode: true, searchPlace: '' };
+  if (searchInfo.multiple) return { status: 'review', reason: searchInfo.reason, skipGeocode: true, searchPlace: searchInfo.searchPlace };
   if (/외\s*\d+\s*곳/.test(placeText)) {
-    return { status: 'review', reason: '여러 사용처가 한 칸에 묶여 있어 확인이 필요해요.', skipGeocode: true };
+    return { status: 'review', reason: '여러 사용처가 한 칸에 묶여 있어 확인이 필요해요.', skipGeocode: true, searchPlace: searchInfo.searchPlace };
   }
-  if (/[，,\/]/.test(placeText)) {
-    return { status: 'review', reason: '여러 사용장소가 한 칸에 있어 확인이 필요해요.', skipGeocode: true };
+  if (/[，,\/]/.test(placeText) && !searchInfo.reason) {
+    return { status: 'review', reason: '여러 사용장소가 한 칸에 있어 확인이 필요해요.', skipGeocode: true, searchPlace: searchInfo.searchPlace };
+  }
+  if (looksLikeInternalRoomLabel(placeText) && !searchInfo.reason && !/(식당|카페|커피|정육|횟집|한우|분식|베이커리|제과|치킨|피자|포차|호프|가든|회관|뷔페)/.test(normalize(placeText))) {
+    return { status: 'review', reason: '교육장실·회의실만 적혀 있어 실제 사용처 확인이 필요해요.', skipGeocode: true, searchPlace: searchInfo.searchPlace };
   }
   if (/\d+\s*명/.test(placeText) && !/(점|식당|카페|커피|호텔|회관|관|집|당|정|소|센터)$/.test(placeText)) {
-    return { status: 'review', reason: '장소가 아니라 대상/인원처럼 보여 확인이 필요해요.', skipGeocode: true };
+    return { status: 'review', reason: '장소가 아니라 대상/인원처럼 보여 확인이 필요해요.', skipGeocode: true, searchPlace: searchInfo.searchPlace };
   }
 
-  return { status: 'pending', reason: '지도 검색 전', skipGeocode: false };
+  return { status: 'pending', reason: searchInfo.reason || '지도 검색 전', skipGeocode: false, searchPlace: searchInfo.searchPlace };
 }
 
-function buildSearchKeyword(row, region) {
-  const place = displayValue(row.place);
+function getAgencyDistrictHints(agency) {
+  const text = normalize(agency);
+  const hints = [];
+  const add = values => values.forEach(value => { if (!hints.includes(value)) hints.push(value); });
+  if (text.includes('남부')) add(['구로', '금천', '영등포']);
+  if (text.includes('동작관악')) add(['동작', '관악']);
+  if (text.includes('강남서초')) add(['강남', '서초']);
+  if (text.includes('강동송파')) add(['강동', '송파']);
+  if (text.includes('성동광진')) add(['성동', '광진']);
+  if (text.includes('성북강북')) add(['성북', '강북']);
+  if (text.includes('강서양천')) add(['강서', '양천']);
+  if (text.includes('동부')) add(['동대문', '중랑']);
+  if (text.includes('서부')) add(['은평', '서대문', '마포']);
+  if (text.includes('북부')) add(['노원', '도봉']);
+  if (text.includes('중부')) add(['종로', '중구', '용산']);
+  ['종로', '용산', '강남', '서초', '동작', '관악', '강동', '송파', '성북', '강북', '구로', '금천', '영등포'].forEach(gu => {
+    if (text.includes(gu)) add([gu]);
+  });
+  return hints;
+}
+
+function buildSearchKeywords(row, region) {
+  const primaryPlace = displayValue(row.searchPlace || row.place);
+  const originalPlace = displayValue(row.place);
   const agency = displayValue(row.department || els.agencyInput.value);
-  const parts = [place, region];
+  const districts = getAgencyDistrictHints(agency);
+  const keywords = [];
+  const push = value => {
+    const keyword = displayValue(value);
+    if (keyword && !keywords.includes(keyword)) keywords.push(keyword);
+  };
 
-  if (agency.includes('종로')) parts.push('종로');
-  if (agency.includes('용산')) parts.push('용산');
-  if (agency.includes('강남')) parts.push('강남');
-  if (agency.includes('서초')) parts.push('서초');
-  if (agency.includes('동작')) parts.push('동작');
-  if (agency.includes('관악')) parts.push('관악');
-  if (agency.includes('강동')) parts.push('강동');
-  if (agency.includes('송파')) parts.push('송파');
-  if (agency.includes('성북')) parts.push('성북');
-  if (agency.includes('강북')) parts.push('강북');
+  districts.slice(0, 3).forEach(gu => push(`${primaryPlace} ${gu}`));
+  push(`${primaryPlace} ${region}`);
+  push(primaryPlace);
+  if (originalPlace && originalPlace !== primaryPlace) push(`${originalPlace} ${region}`);
 
-  return [...new Set(parts.filter(Boolean))].join(' ');
+  return keywords.filter(Boolean);
 }
 
 
@@ -530,6 +654,7 @@ function parseRowsFromSheet(sheetName, idPrefix = '') {
         status: initial.status,
         reason: initial.reason,
         skipGeocode: initial.skipGeocode,
+        searchPlace: initial.searchPlace || derivePlaceSearchInfo(place).searchPlace || place,
         lat: null,
         lng: null,
         address: '',
@@ -1532,20 +1657,32 @@ async function makeMap(options = {}) {
         continue;
       }
 
-      const keyword = buildSearchKeyword(row, region);
-      const { data, status } = await searchPlace(service, keyword);
+      const keywords = buildSearchKeywords(row, region);
+      let searchResult = { data: [], status: null, keyword: '' };
+      for (const keyword of keywords) {
+        const result = await searchPlace(service, keyword);
+        if (result.status === kakao.maps.services.Status.OK && result.data.length > 0) {
+          searchResult = { ...result, keyword };
+          break;
+        }
+      }
+      const { data, status } = searchResult;
       if (status === kakao.maps.services.Status.OK && data.length > 0) {
         const best = data[0];
         row.lat = Number(best.y);
         row.lng = Number(best.x);
         row.address = best.road_address_name || best.address_name || '';
-        row.matchedName = best.place_name || row.place;
+        row.matchedName = best.place_name || row.searchPlace || row.place;
         row.status = data.length === 1 ? 'mapped' : 'review';
-        row.reason = data.length === 1 ? '자동 표시됨' : `후보 ${data.length}개가 있어 확인이 필요해요.`;
+        row.reason = data.length === 1
+          ? `자동 표시됨 · 검색어: ${searchResult.keyword}`
+          : `후보 ${data.length}개가 있어 확인이 필요해요. 검색어: ${searchResult.keyword}`;
         bounds.extend(new kakao.maps.LatLng(row.lat, row.lng));
       } else {
         row.status = 'review';
-        row.reason = '지도 검색 결과를 찾지 못했어요.';
+        row.reason = row.searchPlace && row.searchPlace !== row.place
+          ? `정리한 사용처명(${row.searchPlace})으로도 지도 검색 결과를 찾지 못했어요.`
+          : '지도 검색 결과를 찾지 못했어요.';
       }
       renderStats();
       renderList();
