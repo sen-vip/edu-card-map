@@ -220,9 +220,13 @@ const shoppingMallKeywords = [
 ];
 
 const familyEventKeywords = [
-  '경조사', '경조사비', '경조금', '축의금', '조의금', '부의금', '부조금', '부조',
-  '근조', '화환', '조화', '혼의', '조위금', '조문', '결혼축하', '장례', '부고',
-  '상가', '문상', '위로금'
+  '경조사', '경조사비', '경조비', '경조금', '부조비', '부조금', '부조',
+  '축의금', '축의', '축하금', '조의금', '조의', '부의금', '부의', '조위금',
+  '근조', '근조화환', '근조기', '화환', '조화', '혼의', '조문', '문상',
+  '결혼축하', '결혼', '자녀결혼', '본인결혼', '장례', '장례식', '장례식장',
+  '부고', '상가', '애경사', '애사', '조사', '상사', '사망', '별세',
+  '부친상', '모친상', '시부상', '시모상', '빙부상', '빙모상',
+  '조부상', '조모상', '외조부상', '외조모상', '배우자상', '위로금'
 ];
 
 const personalPaymentKeywords = [
@@ -331,13 +335,14 @@ function looksLikeInternalRoomLabel(place) {
   return /(교육장실|회의실|소회의실|중회의실|상황실|사무실|부속실|관내식당|인근식당|인근음식점)/.test(text);
 }
 
-function getExclusionReason(place, method, purpose, target) {
-  const text = compactText(place, method, purpose, target);
+function getExclusionReason(place, method, purpose, target, rawValues = []) {
+  const rawText = Array.isArray(rawValues) ? rawValues.map(displayValue).join(' ') : displayValue(rawValues);
+  const text = compactText(place, method, purpose, target, rawText);
   const placeText = normalize(place).toLowerCase();
   const methodText = normalize(method).toLowerCase();
 
   if (includesKeyword(text, familyEventKeywords)) {
-    return '경조사비·조의금·축의금 성격으로 보여 지도화 대상에서 제외했어요.';
+    return '경조사비·조의금·부의금·축의금 성격으로 보여 지도화 대상에서 제외했어요.';
   }
 
   if (methodText.includes('현금') && !placeText) {
@@ -525,9 +530,9 @@ function isSummaryOrBlankRow(row) {
   return false;
 }
 
-function classifyInitialRow(place, method, purpose, target) {
+function classifyInitialRow(place, method, purpose, target, rawValues = []) {
   const placeText = displayValue(place);
-  const exclusionReason = getExclusionReason(place, method, purpose, target);
+  const exclusionReason = getExclusionReason(place, method, purpose, target, rawValues);
   if (exclusionReason) return { status: 'excluded', reason: exclusionReason, skipGeocode: true };
 
   const searchInfo = derivePlaceSearchInfo(placeText);
@@ -637,7 +642,7 @@ function parseRowsFromSheet(sheetName, idPrefix = '') {
       const purpose = getCell(row, columns.purpose);
       const method = getCell(row, columns.method);
       const target = getCell(row, columns.target);
-      const initial = classifyInitialRow(place, method, purpose, target);
+      const initial = classifyInitialRow(place, method, purpose, target, row);
       const rowDepartment = getCell(row, columns.department) || defaultDepartment;
 
       return {
@@ -1640,6 +1645,22 @@ async function makeMap(options = {}) {
     const map = initMap();
     if (window.kakao?.maps?.event) kakao.maps.event.trigger(map, 'resize');
     const service = new kakao.maps.services.Places();
+
+    // 지도 검색 직전에도 제외 규칙을 한 번 더 적용합니다.
+    // 일부 교육지원청 엑셀은 경조비 문구가 목적/비고/원본 셀에만 들어가서
+    // 최초 열 매핑 단계에서 누락될 수 있기 때문입니다.
+    state.rows.forEach(row => {
+      const exclusionReason = getExclusionReason(row.place, row.method, row.purpose, row.target, row.raw || []);
+      if (exclusionReason) {
+        row.status = 'excluded';
+        row.reason = exclusionReason;
+        row.skipGeocode = true;
+        row.lat = null;
+        row.lng = null;
+        row.address = '';
+        row.matchedName = '';
+      }
+    });
 
     const targets = state.rows.filter(row => !row.skipGeocode);
     const bounds = new kakao.maps.LatLngBounds();
