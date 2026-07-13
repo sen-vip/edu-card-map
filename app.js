@@ -238,6 +238,19 @@ function includesKeyword(text, keywords) {
   return keywords.some(keyword => text.includes(normalize(keyword).toLowerCase()));
 }
 
+function hasFamilyEventKeyword(...values) {
+  const text = values.flatMap(value => Array.isArray(value) ? value : [value])
+    .map(displayValue)
+    .join(' ');
+  const normalized = normalize(text).toLowerCase();
+
+  // 경조사 표현은 기관마다 '경조비', '경조사비(축의금)', '축의금 전달',
+  // '부의금 지급', '부친상 조의'처럼 목적/내용/비고에 흩어져 들어옵니다.
+  // 지도 검색 전 반드시 원본 행 전체까지 훑어 제외합니다.
+  if (includesKeyword(normalized, familyEventKeywords)) return true;
+  return /(경조|조의|부의|부조|축의|축하금|조위|근조|조문|문상|부고|장례|상가|애경사|애사|조사|상사|별세|사망|부친상|모친상|시부상|시모상|빙부상|빙모상|조부상|조모상|외조부상|외조모상|배우자상)/.test(normalized);
+}
+
 
 function extractParentheticalSegments(text) {
   const source = displayValue(text).replace(/[（]/g, '(').replace(/[）]/g, ')');
@@ -341,7 +354,7 @@ function getExclusionReason(place, method, purpose, target, rawValues = []) {
   const placeText = normalize(place).toLowerCase();
   const methodText = normalize(method).toLowerCase();
 
-  if (includesKeyword(text, familyEventKeywords)) {
+  if (hasFamilyEventKeyword(place, method, purpose, target, rawText)) {
     return '경조사비·조의금·부의금·축의금 성격으로 보여 지도화 대상에서 제외했어요.';
   }
 
@@ -594,6 +607,38 @@ function buildSearchKeywords(row, region) {
   return keywords.filter(Boolean);
 }
 
+function normalizePlaceForMatch(value) {
+  return normalize(value)
+    .replace(/서울특별시|서울시|서울/g, '')
+    .replace(/특별시|광역시|시|군|구|동|읍|면|리/g, '')
+    .replace(/본점|지점|점|호점|분점/g, '')
+    .replace(/주식회사|\(주\)|㈜|유한회사|사단법인|재단법인/g, '')
+    .replace(/[()\[\]{}·,./\-]/g, '')
+    .toLowerCase();
+}
+
+function isStrongKakaoMatch(row, best, results, keyword = '', region = '서울') {
+  const queryName = normalizePlaceForMatch(row.searchPlace || row.place);
+  const bestName = normalizePlaceForMatch(best?.place_name || '');
+  const address = displayValue(best?.road_address_name || best?.address_name || '');
+  const agencyHints = getAgencyDistrictHints(row.department || els.agencyInput.value);
+  const keywordText = normalize(keyword);
+
+  if (queryName && bestName && (bestName.includes(queryName) || queryName.includes(bestName))) return true;
+
+  // 후보가 여러 개여도 검색어에 넣은 교육지원청 권역과 실제 주소가 같이 맞으면
+  // 표에서 계속 '확인필요'로 남기기보다 지도표시로 올립니다.
+  const districtHit = agencyHints.some(gu => address.includes(gu));
+  const keywordHasDistrict = agencyHints.some(gu => keywordText.includes(normalize(gu)));
+  if (districtHit && keywordHasDistrict) return true;
+
+  // 기관/권역 힌트가 없더라도 서울 주소이고 상호명이 충분히 구체적이면 자동 표시합니다.
+  const specificName = queryName.length >= 4 && !/(식당|카페|커피|회의실|교육장실|사용장소없음)/.test(queryName);
+  if (specificName && address.includes(region || '서울') && results.length <= 3) return true;
+
+  return false;
+}
+
 
 function parseRowsFromSheet(sheetName, idPrefix = '') {
   const sheet = state.workbook?.Sheets?.[sheetName];
@@ -736,6 +781,12 @@ function renderSelectedPlace(row = null) {
   els.selectedPlacePanel.querySelector('[data-selected-copy]')?.addEventListener('click', () => copyText(address));
 }
 
+function updateFocusedRowClass(rowId = state.activeRowId) {
+  document.querySelectorAll('[data-row-id]').forEach(item => {
+    item.classList.toggle('is-focused', Boolean(rowId) && item.dataset.rowId === rowId);
+  });
+}
+
 function parseCurrentSheet() {
   if (!state.workbook || !state.sheetName) return;
 
@@ -817,8 +868,8 @@ function renderStats() {
   const uniquePlaces = new Set(mapTargetRows.map(row => row.place).filter(Boolean));
   const counts = getResultCounts();
   els.countStat.textContent = state.rows.length.toLocaleString('ko-KR');
-  els.amountStat.textContent = formatWon(totalAmount);
-  els.placeStat.textContent = uniquePlaces.size.toLocaleString('ko-KR');
+  els.amountStat.textContent = formatWon(getMappedAmount());
+  els.placeStat.textContent = counts.mapped.toLocaleString('ko-KR');
   els.reviewStat.textContent = counts.review.toLocaleString('ko-KR');
   if (els.excludedStat) els.excludedStat.textContent = counts.excluded.toLocaleString('ko-KR');
 
@@ -898,6 +949,7 @@ function renderList() {
       handleResultAction(button.dataset.action, button.dataset.rowId);
     });
   });
+  updateFocusedRowClass();
 }
 
 function renderResultCards(rows) {
@@ -944,7 +996,7 @@ function renderResultTable(rows) {
     const status = statusInfo(row);
     const address = row.address || row.reason || '';
     return `
-      <tr class="${status.className}" data-row-id="${escapeHtml(row.id)}">
+      <tr class="${status.className}${state.activeRowId === row.id ? ' is-focused' : ''}" data-row-id="${escapeHtml(row.id)}">
         <td><span class="status-badge ${status.className}">${status.label}</span></td>
         <td><strong>${escapeHtml(row.place || '사용장소 없음')}</strong><small>${escapeHtml(compactText(row.purpose, 54))}</small></td>
         <td>${escapeHtml(row.date || '')}</td>
@@ -1650,7 +1702,7 @@ async function makeMap(options = {}) {
     // 일부 교육지원청 엑셀은 경조비 문구가 목적/비고/원본 셀에만 들어가서
     // 최초 열 매핑 단계에서 누락될 수 있기 때문입니다.
     state.rows.forEach(row => {
-      const exclusionReason = getExclusionReason(row.place, row.method, row.purpose, row.target, row.raw || []);
+      const exclusionReason = getExclusionReason(row.place, row.method, row.purpose, row.target, [row.department, ...(row.raw || [])]);
       if (exclusionReason) {
         row.status = 'excluded';
         row.reason = exclusionReason;
@@ -1694,9 +1746,12 @@ async function makeMap(options = {}) {
         row.lng = Number(best.x);
         row.address = best.road_address_name || best.address_name || '';
         row.matchedName = best.place_name || row.searchPlace || row.place;
-        row.status = data.length === 1 ? 'mapped' : 'review';
-        row.reason = data.length === 1
-          ? `자동 표시됨 · 검색어: ${searchResult.keyword}`
+        const strongMatch = data.length === 1 || isStrongKakaoMatch(row, best, data, searchResult.keyword, region);
+        row.status = strongMatch ? 'mapped' : 'review';
+        row.reason = strongMatch
+          ? (data.length === 1
+            ? `자동 표시됨 · 검색어: ${searchResult.keyword}`
+            : `자동 표시됨 · 후보 ${data.length}개 중 상호/권역이 맞는 결과를 선택했어요. 검색어: ${searchResult.keyword}`)
           : `후보 ${data.length}개가 있어 확인이 필요해요. 검색어: ${searchResult.keyword}`;
         bounds.extend(new kakao.maps.LatLng(row.lat, row.lng));
       } else {
@@ -1771,6 +1826,7 @@ function openOverlayForRow(row, marker) {
   state.activeOverlay = overlay;
   state.activeRowId = row.id;
   renderSelectedPlace(row);
+  updateFocusedRowClass(row.id);
 }
 
 function scrollMapIntoView() {

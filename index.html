@@ -39,12 +39,13 @@
       <a href="#result-card">표</a>
     </nav>
 
-    <main class="main-grid">
-      <section id="site-card" class="card site-card">
-        <div class="card-head">
+    <main class="main-grid v390-grid">
+      <section id="site-card" class="card site-card control-card">
+        <div class="card-head compact-head">
           <div>
-            <span class="step-badge">Step 1</span>
-            <h2>자료 가져오기</h2>
+            <span class="step-badge section-badge">자료 선택</span>
+            <h2>공개자료 가져오기</h2>
+            <p class="section-subtitle">기준월과 게시판을 고르면 자료 수집부터 지도 표시까지 자동으로 진행합니다.</p>
           </div>
           <div class="head-actions">
             <button id="collapseSiteButton" class="icon-button" type="button" title="조건 접기/펼치기">⌃</button>
@@ -58,7 +59,7 @@
         </div>
 
         <div id="configPanel" class="config-panel">
-          <div class="form-grid">
+          <div class="form-grid query-bar">
             <label>
               <span>기준월</span>
               <input id="siteYearMonthInput" type="month" />
@@ -89,38 +90,26 @@
             </div>
           </div>
 
-          <div class="button-row site-buttons secondary-site-buttons">
+          <div class="support-link-row">
+            <span>보조 기능</span>
             <button id="stopFetchButton" class="secondary-button danger hidden" type="button">수집 중지</button>
-            <button id="fetchSiteButton" class="secondary-button" type="button">게시글 후보만 찾기</button>
-            <button id="loadLatestButton" class="secondary-button" type="button">최신자료 찾기</button>
-            <button id="resetFlowButton" class="secondary-button" type="button">새로 시작하기</button>
+            <button id="fetchSiteButton" class="ghost-chip-button" type="button">게시글 후보만 찾기</button>
+            <button id="loadLatestButton" class="ghost-chip-button" type="button">최신자료 찾기</button>
+            <button id="resetFlowButton" class="ghost-chip-button" type="button">새로 시작하기</button>
+            <a class="ghost-chip-link" href="#upload-card">문제 해결 열기</a>
           </div>
-
-          <details class="advanced-box">
-            <summary>고급 옵션: 첨부파일 URL 직접 불러오기</summary>
-            <div class="direct-url-row">
-              <input id="directUrlInput" type="url" placeholder="열린교육 게시글 또는 첨부파일 URL" />
-              <button id="directFetchButton" class="secondary-button" type="button">URL 불러오기</button>
-            </div>
-          </details>
         </div>
 
-        <div id="flowPanel" class="flow-panel">
-          <div id="flowMessage" class="flow-message">대기 중입니다. 조건을 선택하고 공개자료 가져오기를 누르면 순서대로 진행합니다.</div>
+        <div id="flowPanel" class="flow-panel compact-flow">
+          <div id="flowMessage" class="flow-message">대기 중입니다. 공개자료 가져오기를 누르면 자동으로 지도까지 표시합니다.</div>
           <div class="flow-steps" aria-label="진행 단계">
             <span class="flow-step active" data-flow-step="ready">조건 확인</span>
-            <span class="flow-step" data-flow-step="fetch">서울교육청 자료 수집</span>
-            <span class="flow-step" data-flow-step="parse">지도 대상 정리</span>
-            <span class="flow-step" data-flow-step="geocode">사용처 위치 검색</span>
-            <span class="flow-step" data-flow-step="done">지도 표시 완료</span>
+            <span class="flow-step" data-flow-step="fetch">자료 수집</span>
+            <span class="flow-step" data-flow-step="parse">대상 정리</span>
+            <span class="flow-step" data-flow-step="geocode">위치 검색</span>
+            <span class="flow-step" data-flow-step="done">지도 완료</span>
           </div>
         </div>
-
-        <details id="siteStatusDetails" class="status-details">
-          <summary>자료 가져오기 상세</summary>
-          <pre id="siteStatus" class="status-box">조건을 선택하고 공개자료 가져오기를 눌러주세요.</pre>
-          <div id="siteCandidateList" class="candidate-list"></div>
-        </details>
 
         <div id="siteActionRow" class="site-action-row hidden">
           <button id="makeMapInlineButton" class="primary-button" type="button">지도 다시 만들기</button>
@@ -129,39 +118,28 @@
         </div>
       </section>
 
-      <section id="map-card" class="card map-card">
-        <div class="card-head">
+      <section id="map-card" class="card map-card map-first-card">
+        <div class="card-head map-head">
           <div>
-            <span class="step-badge">Step 2</span>
-            <h2>업무추진비 지도</h2>
+            <span class="step-badge section-badge">지도 확인</span>
+            <h2>업무추진비 사용처 지도</h2>
+            <p class="section-subtitle">지도표시·확인필요를 바로 걸러보고, 마커를 눌러 장소를 확인합니다.</p>
           </div>
-          <div class="button-row compact">
-            <button id="makeMapButton" class="primary-button" type="button" disabled>지도 만들기</button>
+          <div class="button-row compact map-actions">
+            <button id="makeMapButton" class="primary-button" type="button" disabled>지도 다시 만들기</button>
             <button id="clearButton" class="secondary-button" type="button">초기화</button>
           </div>
         </div>
 
-        <div class="form-grid slim">
-          <label>
-            <span>검색 지역 힌트</span>
-            <input id="regionHintInput" type="text" placeholder="예: 동작구, 강남구" />
-          </label>
-          <label>
-            <span>기관명 메모</span>
-            <input id="agencyInput" type="text" placeholder="필요할 때만 입력" />
-          </label>
+        <div id="resultSummaryGrid" class="result-summary-grid map-filter-summary" aria-label="지도 결과 요약 필터">
+          <button class="summary-card total" type="button" data-summary-filter="all"><span>전체</span><strong id="summaryTotal">0</strong></button>
+          <button class="summary-card mapped" type="button" data-summary-filter="mapped"><span>지도표시</span><strong id="summaryMapped">0</strong></button>
+          <button class="summary-card review" type="button" data-summary-filter="review"><span>확인필요</span><strong id="summaryReview">0</strong></button>
+          <button class="summary-card excluded" type="button" data-summary-filter="excluded"><span>제외</span><strong id="summaryExcluded">0</strong></button>
+          <button class="summary-card amount" type="button" data-summary-filter="mapped"><span>지도표시 금액</span><strong id="summaryAmount">0원</strong></button>
         </div>
 
-        <details id="keyDetails" class="key-box">
-          <summary><span id="keyStatusText">Kakao 키 설정</span></summary>
-          <div class="direct-url-row">
-            <input id="kakaoKeyInput" type="password" placeholder="Kakao JavaScript 키" />
-            <button id="saveKeyButton" class="secondary-button" type="button">키 저장</button>
-          </div>
-          <p class="hint">이 설정은 접어두어도 자동 지도 표시가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
-        </details>
-
-        <div id="statsGrid" class="stats-grid">
+        <div id="statsGrid" class="stats-grid map-stat-sink" aria-hidden="true">
           <div><span>총 사용건수</span><strong id="countStat">0</strong></div>
           <div><span>지도 표시 금액</span><strong id="amountStat">0원</strong></div>
           <div><span>지도 표시 장소</span><strong id="placeStat">0</strong></div>
@@ -174,54 +152,21 @@
           <aside id="selectedPlacePanel" class="selected-place-panel" aria-live="polite">
             <span class="panel-kicker">선택 장소</span>
             <strong>지도 마커를 누르면 이곳에 상세가 표시됩니다.</strong>
-            <p>아래 목록으로 이동하지 않고 지도 안에서 바로 확인할 수 있어요.</p>
+            <p>아래 표로 이동하지 않고 지도 안에서 바로 확인할 수 있어요.</p>
           </aside>
         </div>
       </section>
 
-      <section id="upload-card" class="card upload-card">
-        <div class="card-head">
-          <div>
-            <span class="step-badge">Step 1-B</span>
-            <h2>직접 업로드</h2>
-          </div>
-          <span class="subtle-pill">.xlsx · .xls · .csv</span>
-        </div>
-
-        <details id="uploadDetails">
-          <summary>자동 수집이 막힐 때만 직접 엑셀 업로드</summary>
-          <div id="dropZone" class="drop-zone">
-            <div class="upload-icon">↥</div>
-            <strong>엑셀 직접 업로드</strong>
-            <p>자동수집이 막힐 때만 사용하세요.</p>
-            <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
-            <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
-          </div>
-          <div id="sheetRow" class="sheet-row hidden">
-            <label>시트 선택 <select id="sheetSelect"></select></label>
-          </div>
-          <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
-        </details>
-      </section>
-
-      <section id="result-card" class="card result-card">
+      <section id="result-card" class="card result-card table-card">
         <div class="card-head result-head">
           <div>
-            <span class="step-badge">Result</span>
+            <span class="step-badge section-badge">검토 표</span>
             <h2>장소별 검토 표</h2>
-            <p class="section-subtitle">지도 확인을 보조하는 표입니다. 기본은 지도표시 항목부터 보여줍니다.</p>
+            <p class="section-subtitle">표는 지도 확인을 보조하는 검토 목록입니다. 행을 누르면 해당 장소가 지도에 바로 표시됩니다.</p>
           </div>
           <div class="result-head-actions">
             <button id="downloadCsvButton" class="secondary-button" type="button" disabled>CSV 저장</button>
           </div>
-        </div>
-
-        <div id="resultSummaryGrid" class="result-summary-grid" aria-label="결과 요약">
-          <button class="summary-card total" type="button" data-summary-filter="all"><span>전체</span><strong id="summaryTotal">0</strong></button>
-          <button class="summary-card mapped" type="button" data-summary-filter="mapped"><span>지도표시</span><strong id="summaryMapped">0</strong></button>
-          <button class="summary-card review" type="button" data-summary-filter="review"><span>확인필요</span><strong id="summaryReview">0</strong></button>
-          <button class="summary-card excluded" type="button" data-summary-filter="excluded"><span>제외</span><strong id="summaryExcluded">0</strong></button>
-          <button class="summary-card amount" type="button" data-summary-filter="mapped"><span>지도표시 금액</span><strong id="summaryAmount">0원</strong></button>
         </div>
 
         <div class="result-toolbar">
@@ -243,7 +188,75 @@
 
         <div id="resultList" class="result-list empty">아직 읽은 자료가 없습니다.</div>
       </section>
+
+      <section id="upload-card" class="card support-card">
+        <div class="card-head compact-head">
+          <div>
+            <span class="step-badge section-badge muted-badge">문제 해결</span>
+            <h2>자동 수집이 막힐 때만 사용</h2>
+            <p class="section-subtitle">직접 업로드, URL 불러오기, 지도 검색 보정, Kakao 키, 진단 로그를 한곳에 모았습니다.</p>
+          </div>
+          <span class="subtle-pill">고급 기능</span>
+        </div>
+
+        <div class="support-grid">
+          <details id="uploadDetails" class="support-details">
+            <summary>엑셀 직접 업로드</summary>
+            <div id="dropZone" class="drop-zone compact-drop-zone">
+              <div class="upload-icon">↥</div>
+              <div>
+                <strong>열린교육에서 내려받은 엑셀을 올려주세요.</strong>
+                <p>자동 수집이 막힐 때만 사용하는 보조 기능입니다.</p>
+              </div>
+              <input id="fileInput" class="sr-only" type="file" accept=".xlsx,.xls,.csv" />
+              <button id="selectFileButton" class="secondary-button" type="button">파일 선택</button>
+            </div>
+            <div id="sheetRow" class="sheet-row hidden">
+              <label>시트 선택 <select id="sheetSelect"></select></label>
+            </div>
+            <button id="parseButton" class="secondary-button" type="button">자료 읽기</button>
+          </details>
+
+          <details class="support-details">
+            <summary>첨부파일 URL 직접 불러오기</summary>
+            <div class="direct-url-row">
+              <input id="directUrlInput" type="url" placeholder="열린교육 게시글 또는 첨부파일 URL" />
+              <button id="directFetchButton" class="secondary-button" type="button">URL 불러오기</button>
+            </div>
+          </details>
+
+          <details class="support-details">
+            <summary>지도 검색 보정</summary>
+            <div class="form-grid slim support-form">
+              <label>
+                <span>검색 지역 힌트</span>
+                <input id="regionHintInput" type="text" placeholder="예: 동작구, 강남구" />
+              </label>
+              <label>
+                <span>기관명 메모</span>
+                <input id="agencyInput" type="text" placeholder="필요할 때만 입력" />
+              </label>
+            </div>
+          </details>
+
+          <details id="keyDetails" class="support-details key-box">
+            <summary><span id="keyStatusText">Kakao 키 설정</span></summary>
+            <div class="direct-url-row">
+              <input id="kakaoKeyInput" type="password" placeholder="Kakao JavaScript 키" />
+              <button id="saveKeyButton" class="secondary-button" type="button">키 저장</button>
+            </div>
+            <p class="hint">이 설정은 접어두어도 자동 지도 표시가 작동합니다. 배포 도메인은 Kakao Developers에 등록해야 합니다.</p>
+          </details>
+
+          <details id="siteStatusDetails" class="support-details status-details">
+            <summary>진단 로그 보기</summary>
+            <pre id="siteStatus" class="status-box">조건을 선택하고 공개자료 가져오기를 눌러주세요.</pre>
+            <div id="siteCandidateList" class="candidate-list"></div>
+          </details>
+        </div>
+      </section>
     </main>
+
 
     <footer class="footer">제작자 senvip · <a href="https://github.com/sen-vip/edu-card-map" target="_blank" rel="noopener">GitHub</a></footer>
   </div>
