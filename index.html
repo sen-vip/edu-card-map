@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>교육청 법카맵</title>
   <meta name="description" content="서울교육 업무추진비 공개자료 엑셀을 지도와 목록으로 확인하는 웹앱" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="icon" href="./favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192x192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -26,6 +32,12 @@
         </ul>
       </div>
     </header>
+
+    <nav class="mobile-quick-nav" aria-label="모바일 빠른 이동">
+      <a href="#site-card">자료</a>
+      <a href="#map-card">지도</a>
+      <a href="#result-card">표</a>
+    </nav>
 
     <main class="main-grid">
       <section id="site-card" class="card site-card">
@@ -117,7 +129,7 @@
         </div>
       </section>
 
-      <section class="card map-card">
+      <section id="map-card" class="card map-card">
         <div class="card-head">
           <div>
             <span class="step-badge">Step 2</span>
@@ -192,7 +204,7 @@
         </details>
       </section>
 
-      <section class="card result-card">
+      <section id="result-card" class="card result-card">
         <div class="card-head result-head">
           <div>
             <span class="step-badge">Result</span>
