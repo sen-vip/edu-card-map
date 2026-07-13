@@ -904,3 +904,36 @@ summary { font-weight: 900; color: #344054; cursor: pointer; }
   .result-table tr { grid-template-columns: 66px minmax(0, 1fr); padding: 12px; }
   .summary-card { flex-basis: 118px; }
 }
+
+/* v3.8.5: 하위항목 전체 목록과 교육지원청 수집 안정화 */
+.combo-list {
+  max-height: min(620px, calc(100vh - 190px));
+  overscroll-behavior: contain;
+}
+.combo-list.is-open-all {
+  max-height: min(680px, calc(100vh - 170px));
+}
+.combo-group-label {
+  position: static;
+  top: auto;
+  z-index: auto;
+  padding: 12px 12px 5px;
+  background: transparent;
+  backdrop-filter: none;
+}
+.combo-option strong {
+  line-height: 1.25;
+}
+@media (max-width: 860px) {
+  .combo-list,
+  .combo-list.is-open-all {
+    max-height: none;
+  }
+  .combo-group-label {
+    position: sticky;
+    top: -10px;
+    z-index: 1;
+    background: rgba(255, 255, 255, .98);
+    padding-top: 10px;
+  }
+}

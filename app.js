@@ -111,36 +111,9 @@ const SOURCE_LABELS = {
 const AGENCY_GROUP_ORDER = ['본청', '교육지원청', '직속기관', '도서관·평생학습관', '본청 부서'];
 
 const AGENCY_OPTIONS = [
+  { name: '서울시교육청본청', group: '본청' },
   { name: '본청', group: '본청' },
   { name: '서울특별시교육청', group: '본청' },
-
-  // 본청 산하 부서
-  { name: '대변인', group: '본청 부서' },
-  { name: '감사관', group: '본청 부서' },
-  { name: '총무과', group: '본청 부서' },
-  { name: '안전총괄담당관', group: '본청 부서' },
-  { name: '유보통합추진단', group: '본청 부서' },
-  { name: '정책기획관', group: '본청 부서' },
-  { name: '예산담당관', group: '본청 부서' },
-  { name: '행정관리담당관', group: '본청 부서' },
-  { name: '학생맞춤지원담당관', group: '본청 부서' },
-  { name: '노사협력담당관', group: '본청 부서' },
-  { name: '교육협력담당관', group: '본청 부서' },
-  { name: '창의미래교육과', group: '본청 부서' },
-  { name: '유아교육과', group: '본청 부서' },
-  { name: '초등교육과', group: '본청 부서' },
-  { name: '중등교육과', group: '본청 부서' },
-  { name: '학생역량·혁신교육과', group: '본청 부서' },
-  { name: '학생역량‧혁신교육과', group: '본청 부서' },
-  { name: '평생교육과', group: '본청 부서' },
-  { name: '민주시민교육과', group: '본청 부서' },
-  { name: '진로직업교육과', group: '본청 부서' },
-  { name: '체육건강예술교육과', group: '본청 부서' },
-  { name: '특수교육과', group: '본청 부서' },
-  { name: '학교지원과', group: '본청 부서' },
-  { name: '교육재정과', group: '본청 부서' },
-  { name: '교육시설안전과', group: '본청 부서' },
-  { name: '미래학교추진단', group: '본청 부서' },
 
   // 교육지원청
   { name: '동부교육지원청', group: '교육지원청' },
@@ -157,26 +130,18 @@ const AGENCY_OPTIONS = [
 
   // 직속기관
   { name: '교육연구정보원', group: '직속기관' },
-  { name: '서울특별시교육청교육연구정보원', group: '직속기관' },
   { name: '융합과학교육원', group: '직속기관' },
-  { name: '서울특별시교육청융합과학교육원', group: '직속기관' },
   { name: '교육연수원', group: '직속기관' },
-  { name: '서울특별시교육청교육연수원', group: '직속기관' },
   { name: '학생교육원', group: '직속기관' },
-  { name: '서울특별시교육청학생교육원', group: '직속기관' },
   { name: '유아교육진흥원', group: '직속기관' },
-  { name: '서울특별시교육청유아교육진흥원', group: '직속기관' },
   { name: '보건안전진흥원', group: '직속기관' },
-  { name: '서울특별시교육청보건안전진흥원', group: '직속기관' },
   { name: '학생체육관', group: '직속기관' },
-  { name: '서울특별시교육청학생체육관', group: '직속기관' },
   { name: '교육시설관리본부', group: '직속기관' },
-  { name: '서울특별시교육청교육시설관리본부', group: '직속기관' },
 
   // 도서관·평생학습관
-  { name: '마포평생학습관', group: '도서관·평생학습관' },
-  { name: '노원평생학습관', group: '도서관·평생학습관' },
   { name: '고덕평생학습관', group: '도서관·평생학습관' },
+  { name: '노원평생학습관', group: '도서관·평생학습관' },
+  { name: '마포평생학습관', group: '도서관·평생학습관' },
   { name: '영등포평생학습관', group: '도서관·평생학습관' },
   { name: '강남도서관', group: '도서관·평생학습관' },
   { name: '강동도서관', group: '도서관·평생학습관' },
@@ -195,6 +160,33 @@ const AGENCY_OPTIONS = [
   { name: '용산도서관', group: '도서관·평생학습관' },
   { name: '정독도서관', group: '도서관·평생학습관' },
   { name: '종로도서관', group: '도서관·평생학습관' },
+
+  // 본청 산하 부서
+  { name: '대변인', group: '본청 부서' },
+  { name: '감사관', group: '본청 부서' },
+  { name: '총무과', group: '본청 부서' },
+  { name: '안전총괄담당관', group: '본청 부서' },
+  { name: '유보통합추진단', group: '본청 부서' },
+  { name: '정책기획관', group: '본청 부서' },
+  { name: '예산담당관', group: '본청 부서' },
+  { name: '행정관리담당관', group: '본청 부서' },
+  { name: '학생맞춤지원담당관', group: '본청 부서' },
+  { name: '노사협력담당관', group: '본청 부서' },
+  { name: '교육협력담당관', group: '본청 부서' },
+  { name: '창의미래교육과', group: '본청 부서' },
+  { name: '유아교육과', group: '본청 부서' },
+  { name: '초등교육과', group: '본청 부서' },
+  { name: '중등교육과', group: '본청 부서' },
+  { name: '학생역량·혁신교육과', group: '본청 부서' },
+  { name: '평생교육과', group: '본청 부서' },
+  { name: '민주시민교육과', group: '본청 부서' },
+  { name: '진로직업교육과', group: '본청 부서' },
+  { name: '체육건강예술교육과', group: '본청 부서' },
+  { name: '특수교육과', group: '본청 부서' },
+  { name: '학교지원과', group: '본청 부서' },
+  { name: '교육재정과', group: '본청 부서' },
+  { name: '교육시설안전과', group: '본청 부서' },
+  { name: '미래학교추진단', group: '본청 부서' },
 ];
 
 const headerRules = {
@@ -1195,9 +1187,9 @@ function orderedAgencyOptions(options) {
 function visibleAgencyOptions(query = '', limit = 12) {
   const q = normalize(query).toLowerCase();
   const source = els.siteSourceSelect?.value || 'org';
-  let options = source === 'org' ? orderedAgencyOptions(AGENCY_OPTIONS) : [];
-  if (!q) return options.slice(0, limit);
-  return options
+  const options = source === 'org' ? orderedAgencyOptions(AGENCY_OPTIONS) : [];
+  if (!q) return limit === Infinity ? options : options.slice(0, limit);
+  const matches = options
     .map(item => {
       const text = normalize(item.name).toLowerCase();
       const group = normalize(item.group).toLowerCase();
@@ -1209,8 +1201,8 @@ function visibleAgencyOptions(query = '', limit = 12) {
       return { ...item, score };
     })
     .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'))
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
+  return limit === Infinity ? matches : matches.slice(0, limit);
 }
 
 function renderAgencySuggestions(openAll = false) {
@@ -1220,7 +1212,8 @@ function renderAgencySuggestions(openAll = false) {
     els.siteAgencyInput.setAttribute('aria-expanded', 'false');
     return;
   }
-  const options = visibleAgencyOptions(openAll ? '' : els.siteAgencyInput.value, openAll ? AGENCY_OPTIONS.length : 16);
+  const query = openAll ? '' : els.siteAgencyInput.value;
+  const options = visibleAgencyOptions(query, openAll || !query.trim() ? Infinity : 16);
   els.agencySuggestionList.classList.toggle('is-open-all', Boolean(openAll));
   if (!options.length) {
     els.agencySuggestionList.innerHTML = '<div class="combo-option combo-empty"><strong>직접 입력 가능</strong></div>';
@@ -1809,9 +1802,9 @@ if (els.reopenSiteButton) {
 });
 
 if (els.siteAgencyInput) {
-  els.siteAgencyInput.addEventListener('focus', () => renderAgencySuggestions(false));
+  els.siteAgencyInput.addEventListener('focus', () => renderAgencySuggestions(!els.siteAgencyInput.value.trim()));
   els.siteAgencyInput.addEventListener('input', () => {
-    renderAgencySuggestions(false);
+    renderAgencySuggestions(!els.siteAgencyInput.value.trim());
     if (els.agencyInput) els.agencyInput.value = els.siteAgencyInput.value.trim();
   });
   els.siteAgencyInput.addEventListener('keydown', event => {
